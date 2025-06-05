@@ -7,7 +7,34 @@
     <title>Blubber - Blendshapes UDP Test</title>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <div class="container">
+        <div class="header">
+            <h1>Babble Web</h1>
+            <div class="controls">
+                <select id="cameraSource">
+                    <option value="serial">Serial Camera</option>
+                    <option value="webcam">Webcam</option>
+                </select>
+                <button id="connectBtn">Connect Camera</button>
+                <button id="flipVerticalBtn">Flip Vertical: Off</button>
+                <button id="flipHorizontalBtn">Flip Horizontal: Off</button>
+                <span id="fpsCounter">FPS: 0</span>
+            </div>
+        </div>
+        <div class="main-content">
+            <div class="preview">
+                <canvas id="preview" alt="Camera Preview"></canvas>
+                <canvas id="previewCropped" alt="Cropped Preview"></canvas>
+                <pre id="log"></pre>
+            </div>
+            <div class="blendshapes">
+                <h2>Blendshapes</h2>
+                <div id="blendshapesList"></div>
+            </div>
+        </div>
+    </div>
+    </div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

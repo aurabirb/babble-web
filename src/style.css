@@ -217,3 +217,10 @@ button:focus-visible {
     gap: 0.5rem;
   }
 }
+
+#log {
+  padding: 1rem;
+  border-radius: 4px;
+  min-height: 200px;
+  white-space: pre-wrap;
+}

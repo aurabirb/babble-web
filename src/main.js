@@ -3,7 +3,9 @@ import { WebcamCamera } from './webcam-camera';
 import { BabbleModel } from './babble-model';
 import './style.css';
 import { MultiOneEuroFilter } from './one-euro-filter.js';
-import { OSCClient } from './osc-client.js';
+
+import { listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
 
 const modelUrl = '/babble-web/model.onnx';
 const IMAGE_SIZE = 224; // Model's required input size
@@ -40,12 +42,14 @@ class BabbleApp {
         this.isDrawing = false;
         this.drawStart = { x: 0, y: 0 };
         this.drawEnd = { x: 0, y: 0 };  // Add end position tracking
-        
-        this.oscClient = new OSCClient();
-        this.oscClient.connect();
-        
+
         this.setupUI();
         this.setupEventListeners();
+    }
+
+    logMessage(message) {
+        const logElement = document.querySelector('#log');
+        logElement.textContent += `\n${message}`;
     }
 
     setupUI() {
@@ -70,6 +74,7 @@ class BabbleApp {
                     <div class="preview">
                         <canvas id="preview" alt="Camera Preview"></canvas>
                         <canvas id="previewCropped" alt="Cropped Preview"></canvas>
+                        <pre id="log"></pre>
                     </div>
                     <div class="blendshapes">
                         <h2>Blendshapes</h2>
@@ -90,6 +95,11 @@ class BabbleApp {
         preview.style.cursor = 'grab';
         const fpsCounter = document.getElementById('fpsCounter');
 
+        // Listen for UDP messages from the backend
+        // const unlisten = listen('udp-message', (event) => {
+        //     this.logMessage(`Received UDP message: ${event.payload}`);
+        // });
+
         // Add mouse event listeners for drawing crop rectangle
         preview.addEventListener('mousedown', (e) => this.handleMouseDown(e));
         window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
@@ -101,8 +111,8 @@ class BabbleApp {
                 await this.activeCamera.disconnect();
                 // reset the crop rectangle
                 this.cropRect = {
-                    x: 0,
-                    y: 0,
+                    x: preview.width / 2 - IMAGE_SIZE / 2,
+                    y: preview.height / 2 - IMAGE_SIZE / 2,
                     width: IMAGE_SIZE,
                     height: IMAGE_SIZE
                 };
@@ -393,7 +403,7 @@ class BabbleApp {
         this.currentFps = 0;
     }
 
-    updateBlendshapes(predictions) {
+    async updateBlendshapes(predictions) {
         const blendshapesList = document.getElementById('blendshapesList');
         blendshapesList.innerHTML = '';
 
@@ -423,8 +433,8 @@ class BabbleApp {
             blendshapes[name] = predictions[index];
         });
 
-        // Send to VRCFaceTracking
-        this.oscClient.sendBlendshapes(blendshapes);
+        await invoke('send_blendshapes', { data: blendshapes });
+        this.logMessage(`Sent ${BabbleModel.blendshapeNames.length} blendshapes`);
     }
 }
 

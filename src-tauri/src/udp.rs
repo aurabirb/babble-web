@@ -1,0 +1,63 @@
+use serde::{Deserialize, Serialize};
+use std::net::SocketAddr;
+use tokio::net::UdpSocket;
+use tauri::{Emitter, Listener};
+
+
+use serde_json;
+use std::collections::HashMap;
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BlendshapeData {
+  pub data: HashMap<String, f32>,
+}
+
+#[tauri::command]
+pub async fn send_blendshapes(
+    app_handle: tauri::AppHandle,
+    data: BlendshapeData,
+) -> Result<(), String> {
+    let socket = UdpSocket::bind("0.0.0.0:0")
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let target = "127.0.0.1:8883".parse::<SocketAddr>().unwrap();
+    let json_data = serde_json::to_string(&data).map_err(|e| e.to_string())?;
+    println!("received blendshapes {:?}", json_data);
+
+    socket
+        .send_to(json_data.as_bytes(), target)
+        .await
+        .map_err(|e| e.to_string())?;
+
+
+    Ok(())
+}
+
+// Optional: Add a function to start listening for UDP messages if needed
+#[tauri::command]
+pub async fn start_udp_listener(
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    let socket = UdpSocket::bind("127.0.0.1:8884")
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let mut buf = [0u8; 1024];
+    
+    loop {
+        match socket.recv_from(&mut buf).await {
+            Ok((size, addr)) => {
+                if let Ok(data) = String::from_utf8(buf[..size].to_vec()) {
+                    // Here you can emit an event to the frontend with the received data
+                    app_handle
+                        .emit("udp-message", data)
+                        .map_err(|e| e.to_string())?;
+                }
+            }
+            Err(e) => {
+                eprintln!("Error receiving UDP message: {}", e);
+            }
+        }
+    }
+}
