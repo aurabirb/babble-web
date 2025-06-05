@@ -3,6 +3,7 @@ import { WebcamCamera } from './webcam-camera';
 import { BabbleModel } from './babble-model';
 import './style.css';
 import { MultiOneEuroFilter } from './one-euro-filter.js';
+import { OSCClient } from './osc-client.js';
 
 const modelUrl = '/babble-web/model.onnx';
 const IMAGE_SIZE = 224; // Model's required input size
@@ -31,14 +32,17 @@ class BabbleApp {
         this.cropRect = {
             x: 0,
             y: 0,
-            width: 224,
-            height: 224
+            width: IMAGE_SIZE,
+            height: IMAGE_SIZE
         };
         
         // Drawing state
         this.isDrawing = false;
         this.drawStart = { x: 0, y: 0 };
         this.drawEnd = { x: 0, y: 0 };  // Add end position tracking
+        
+        this.oscClient = new OSCClient();
+        this.oscClient.connect();
         
         this.setupUI();
         this.setupEventListeners();
@@ -95,6 +99,13 @@ class BabbleApp {
             if (this.activeCamera && this.activeCamera.isConnected) {
                 this.stopFrameProcessing();
                 await this.activeCamera.disconnect();
+                // reset the crop rectangle
+                this.cropRect = {
+                    x: 0,
+                    y: 0,
+                    width: IMAGE_SIZE,
+                    height: IMAGE_SIZE
+                };
                 connectBtn.textContent = 'Connect Camera';
             }
         });
@@ -405,6 +416,15 @@ class BabbleApp {
             `;
             blendshapesList.appendChild(bar);
         });
+
+        // Create blendshapes object
+        const blendshapes = {};
+        BabbleModel.blendshapeNames.forEach((name, index) => {
+            blendshapes[name] = predictions[index];
+        });
+
+        // Send to VRCFaceTracking
+        this.oscClient.sendBlendshapes(blendshapes);
     }
 }
 
