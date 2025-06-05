@@ -1,0 +1,4 @@
+[submodule "models"]
+	path = models
+	url = https://github.com/Project-Babble/ProjectBabble.git
+	branch = main
