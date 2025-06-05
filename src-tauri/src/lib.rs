@@ -34,7 +34,7 @@ pub fn run() {
             app.listen("send_blendshapes", |event| {
                 println!("received blendshapes event");
                 if let Ok(payload) = serde_json::from_str::<BlendshapeData>(&event.payload()) {
-                    println!("received blendshapes {:#?}", payload.data);
+                    println!("jawOpen: {:?}", payload.data["jawOpen"]);
                 }
             });
 

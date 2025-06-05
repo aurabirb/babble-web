@@ -4,8 +4,10 @@ import { BabbleModel } from './babble-model';
 import './style.css';
 import { MultiOneEuroFilter } from './one-euro-filter.js';
 
-import { listen } from '@tauri-apps/api/event';
-import { invoke } from '@tauri-apps/api/core';
+// for events: https://v2.tauri.app/develop/calling-rust/
+import { listen, emit } from '@tauri-apps/api/event';
+// for commands
+// import { invoke } from '@tauri-apps/api/core';
 
 const modelUrl = '/babble-web/model.onnx';
 const IMAGE_SIZE = 224; // Model's required input size
@@ -440,7 +442,7 @@ class BabbleApp {
         });
 
         this.logMessage(`Sending blendshapes...`);
-        await invoke('send_blendshapes', { data: blendshapes });
+        await emit('send_blendshapes', { data: blendshapes });
         this.logMessage(`Sent ${BabbleModel.blendshapeNames.length} blendshapes`);
     }
 }
