@@ -2,6 +2,7 @@ import { WebSerialCamera } from './serial-camera';
 import { WebcamCamera } from './webcam-camera';
 import { BabbleModel } from './babble-model';
 import './style.css';
+import { MultiOneEuroFilter } from './one-euro-filter.js';
 
 const modelUrl = '/babble-web/model.onnx';
 const IMAGE_SIZE = 224; // Model's required input size
@@ -12,12 +13,19 @@ class BabbleApp {
         this.webcamCamera = new WebcamCamera();
         this.activeCamera = null;
         this.model = new BabbleModel();
+        this.oneEuroFilter = new MultiOneEuroFilter(
+            BabbleModel.blendshapeNames.length,  // Size based on number of blendshapes
+            3.0,  // minCutoff (from original Babble settings)
+            0.9,  // beta (from original Babble settings)
+            1.0   // dCutoff
+        );
         this.isModelInitialized = false;
         this.frameInterval = 1000 / 60; // 60 FPS = 16.67ms between frames
         this.lastFrameTime = 0;
         this.currentFps = 0;
         this.isVerticallyFlipped = false;
         this.isHorizontallyFlipped = false;
+        
         
         // Crop rectangle state
         this.cropRect = {
@@ -341,7 +349,12 @@ class BabbleApp {
                 this.isPredicting = true;
                 // Use the cropped preview for predictions
                 const predictions = await this.model.predict(previewCropped);
-                this.updateBlendshapes(predictions);
+                
+                // Apply One Euro Filter to the predictions
+                const filteredPredictions = this.oneEuroFilter.filter(predictions, timestamp / 1000.0);
+                
+                // Update blendshapes with filtered predictions
+                this.updateBlendshapes(filteredPredictions);
                 this.isPredicting = false;
             }
         } catch (err) {
