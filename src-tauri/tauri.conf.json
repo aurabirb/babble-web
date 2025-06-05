@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "blubber-web",
   "version": "0.1.0",
-  "identifier": "com.tauri.dev",
+  "identifier": "aurabirb.blubber-web",
   "build": {
     "devUrl": "http://localhost:1420/babble-web/",
     "beforeDevCommand": "npm run dev",

@@ -49,7 +49,13 @@ class BabbleApp {
 
     logMessage(message) {
         const logElement = document.querySelector('#log');
-        logElement.textContent += `\n${message}`;
+        const messages = logElement.querySelectorAll('pre');
+        if (messages.length >= 50) {
+            logElement.removeChild(logElement.lastChild);
+        }
+        const pre = document.createElement('pre');
+        pre.textContent = message;
+        logElement.prepend(pre);
     }
 
     setupUI() {
@@ -74,7 +80,7 @@ class BabbleApp {
                     <div class="preview">
                         <canvas id="preview" alt="Camera Preview"></canvas>
                         <canvas id="previewCropped" alt="Cropped Preview"></canvas>
-                        <pre id="log"></pre>
+                        <div id="log"></div>
                     </div>
                     <div class="blendshapes">
                         <h2>Blendshapes</h2>
@@ -433,6 +439,7 @@ class BabbleApp {
             blendshapes[name] = predictions[index];
         });
 
+        this.logMessage(`Sending blendshapes...`);
         await invoke('send_blendshapes', { data: blendshapes });
         this.logMessage(`Sent ${BabbleModel.blendshapeNames.length} blendshapes`);
     }
