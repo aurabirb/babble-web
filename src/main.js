@@ -553,8 +553,17 @@ class BabbleApp {
         );
     }
 }
-
 // Initialize the app when the page loads
-window.addEventListener('DOMContentLoaded', () => {
+function initializeApp() {
+    console.log('Starting BabbleApp...');
     new BabbleApp();
-});
+}
+
+// Check if DOM is already loaded, otherwise wait for DOMContentLoaded
+if (document.readyState === 'loading') {
+    // DOM is still loading, wait for DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', initializeApp);
+} else {
+    // DOM is already loaded, initialize immediately
+    initializeApp();
+}
