@@ -223,6 +223,19 @@ button:focus-visible {
   border-radius: 4px;
   min-height: 200px;
   white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  max-width: 100%;
+}
+
+#log pre {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  margin: 0.25rem 0;
+  max-width: 100%;
+  display: flex;
+  align-content: start;
 }
 
 .filter-controls {
