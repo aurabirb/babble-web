@@ -25,6 +25,7 @@ export class TauriSerialCamera {
     async requestPort() {
         try {
             // Get available ports
+            console.log('Tauri serial requested...');
             const ports = await SerialPort.available_ports();
             const portNames = Object.keys(ports);
             

@@ -18,6 +18,7 @@ class BabbleApp {
         console.log('Initializing Babble Web App...');
         // Detect environment and choose appropriate serial implementation
         this.isTauriEnvironment = window.__TAURI__ !== undefined;
+        console.log(`Is Tauri environment: ${this.isTauriEnvironment}`);
         this.hasWebSerial = 'serial' in navigator;
 
         // Initialize serial camera based on environment
@@ -29,6 +30,7 @@ class BabbleApp {
             this.logMessage('Using Tauri plugin for serial communication');
         } else {
             this.serialCamera = null;
+            console.warn('WebSerial is not supported in this browser');
             this.logMessage('WebSerial is not supported in this browser');
         }
 
@@ -200,7 +202,7 @@ class BabbleApp {
             if (selectedSource === 'serial' && !this.serialCamera) {
                 this.logMessage('Serial communication is not supported in this browser. Please use a browser that supports WebSerial API (Chrome, Edge) or use the Blubber dektop app.');
             }
-            
+
             const camera = selectedSource === 'webcam' ? this.webcamCamera : this.serialCamera;
             
             if (!camera || !camera.isConnected) {
