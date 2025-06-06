@@ -10,6 +10,17 @@ import { listen, emit } from '@tauri-apps/api/event';
 // for commands
 // import { invoke } from '@tauri-apps/api/core';
 
+// Import SerialPort for Tauri environments
+let SerialPort = null;
+if (window.__TAURI__) {
+    try {
+        const module = await import('tauri-plugin-serialplugin');
+        SerialPort = module.SerialPort;
+    } catch (err) {
+        console.warn('Failed to import SerialPort plugin:', err);
+    }
+}
+
 const modelUrl = '/babble-web/model.onnx';
 const IMAGE_SIZE = 224; // Model's required input size
 
@@ -44,7 +55,7 @@ class BabbleApp {
             1.0   // dCutoff
         );
         this.isModelInitialized = false;
-        this.targetFps = 60;
+        this.targetFps = 90;
         this.frameInterval = 1000 / this.targetFps; // 60 FPS = 16.67ms between frames
         this.lastFrameTime = 0;
         this.currentFps = 0;
@@ -74,6 +85,42 @@ class BabbleApp {
 
         this.setupUI();
         this.setupEventListeners();
+        this.initializeSerialPortSelection();
+    }
+
+    async initializeSerialPortSelection() {
+        // Show serial port selection if we're in Tauri environment and serial is selected
+        const cameraSource = document.getElementById('cameraSource');
+        const serialPortSelection = document.getElementById('serialPortSelection');
+        
+        if (cameraSource.value === 'serial' && this.isTauriEnvironment && this.serialCamera) {
+            serialPortSelection.style.display = 'block';
+            await this.refreshSerialPorts();
+        }
+    }
+
+    async refreshSerialPorts() {
+        if (!SerialPort) return;
+        
+        const serialPortSelect = document.getElementById('serialPortSelect');
+        
+        try {
+            const ports = await SerialPort.available_ports();
+            const portNames = Object.keys(ports);
+            
+            // Clear existing options except the first one
+            serialPortSelect.innerHTML = '<option value="">Select a port...</option>';
+            
+            // Add available ports
+            portNames.forEach(portName => {
+                const option = document.createElement('option');
+                option.value = portName;
+                option.textContent = `${portName} - ${ports[portName]?.product_name || 'Unknown Device'}`;
+                serialPortSelect.appendChild(option);
+            });
+        } catch (err) {
+            this.logMessage('Failed to refresh serial ports: ' + err.message);
+        }
     }
 
     logMessage(message) {
@@ -109,7 +156,13 @@ class BabbleApp {
                     <div class="udp-controls">
                         <label for="udpPort">UDP Port:</label>
                         <input type="number" id="udpPort" min="1" max="65535" value="8883" placeholder="8883">
-                        <span id="udpStatus">Ready</span>
+                        <span id="udpStatus" class="udpStatus">Ready</span>
+                        <div id="serialPortSelection" style="display: none;">
+                            <select id="serialPortSelect">
+                                <option value="">Select a port...</option>
+                            </select>
+                            <button id="refreshPortsBtn" class="udpStatus">Refresh Ports</button>
+                        </div>
                     </div>
                     <div class="filter-controls">
                         <div class="filter-param">
@@ -146,6 +199,9 @@ class BabbleApp {
         const flipVerticalBtn = document.getElementById('flipVerticalBtn');
         const flipHorizontalBtn = document.getElementById('flipHorizontalBtn');
         const cameraSource = document.getElementById('cameraSource');
+        const serialPortSelection = document.getElementById('serialPortSelection');
+        const serialPortSelect = document.getElementById('serialPortSelect');
+        const refreshPortsBtn = document.getElementById('refreshPortsBtn');
         /** @type {HTMLCanvasElement} */
         const preview = document.getElementById('preview');
         preview.style.cursor = 'grab';
@@ -201,6 +257,20 @@ class BabbleApp {
                 };
                 connectBtn.textContent = 'Connect Camera';
             }
+            
+            // Show/hide serial port selection based on camera source and environment
+            const selectedSource = cameraSource.value;
+            if (selectedSource === 'serial' && this.isTauriEnvironment && this.serialCamera) {
+                serialPortSelection.style.display = 'block';
+                await this.refreshSerialPorts();
+            } else {
+                serialPortSelection.style.display = 'none';
+            }
+        });
+
+        // Handle refresh ports button
+        refreshPortsBtn.addEventListener('click', async () => {
+            await this.refreshSerialPorts();
         });
 
         connectBtn.addEventListener('click', async () => {
@@ -214,7 +284,7 @@ class BabbleApp {
             
             if (!camera || !camera.isConnected) {
                 console.log(`Connecting to ${selectedSource} camera...`);
-                if (camera && await camera.requestPort()) {
+                if (camera && await camera.requestPort(serialPortSelect?.value)) {
                     await camera.connect();
                     this.activeCamera = camera;
                     connectBtn.textContent = 'Disconnect';

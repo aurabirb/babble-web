@@ -13,6 +13,7 @@ export class TauriSerialCamera {
         this.currentImageUrl = null;
         this.isListening = false;
         this.portPath = null;
+        this.availablePorts = {};
 
         // Default options - match the original implementation
         this.options = {
@@ -22,20 +23,27 @@ export class TauriSerialCamera {
         console.log(`TauriSerialCamera initialized with options: ${JSON.stringify(this.options)}`);
     }
 
-    async requestPort() {
+
+    async requestPort(selectedPortPath = null) {
         try {
             // Get available ports
             console.log('Tauri serial requested...');
             const ports = await SerialPort.available_ports();
+            this.availablePorts = ports;
             const portNames = Object.keys(ports);
             
             if (portNames.length === 0) {
                 throw new Error('No serial ports found');
             }
 
-            // For now, select the first available port
-            // In a real implementation, you might want to show a selection dialog
-            this.portPath = portNames[0];
+            // Use the selected port if provided, otherwise use the first available port
+            if (selectedPortPath && portNames.includes(selectedPortPath)) {
+                this.portPath = selectedPortPath;
+            } else {
+                this.portPath = portNames[0];
+                console.warn(`No port selected, using first available port: ${this.portPath}`);
+            }
+            
             console.log(`Selected port: ${this.portPath}`, ports[this.portPath]);
             
             return true;
