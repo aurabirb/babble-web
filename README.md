@@ -1,6 +1,6 @@
 # babble-web
 
-Live demo: https://fedorg.github.io/babble-web/
+Live demo: https://aurabirb.github.io/babble-web/
 
 Project Babble (https://github.com/Project-Babble/ProjectBabble) but in the browser.
 

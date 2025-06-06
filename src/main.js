@@ -152,7 +152,7 @@ class BabbleApp {
         app.innerHTML = `
             <div class="container">
                 <div class="header">
-                    <h1>Babble Web</h1>
+                    <a href="http://aurabirb.github.io/babble-web/" target="_blank" rel="noopener noreferrer"><h1>Blubber Web</h1></a>
                     <div class="controls">
                         <select id="cameraSource">
                             <option value="serial">Serial Camera</option>
