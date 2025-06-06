@@ -2,9 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use tokio::net::UdpSocket;
 use tauri::{Emitter, Listener};
-
-
-use serde_json;
+use rosc::{OscMessage, OscPacket, OscType, encoder};
 use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -22,14 +20,25 @@ pub async fn send_blendshapes(
         .map_err(|e| e.to_string())?;
 
     let target = "127.0.0.1:8883".parse::<SocketAddr>().unwrap();
-    let json_data = serde_json::to_string(&data).map_err(|e| e.to_string())?;
-    // println!("tx blendshapes {:?}", json_data);
 
-    socket
-        .send_to(json_data.as_bytes(), target)
-        .await
-        .map_err(|e| e.to_string())?;
+    // Send OSC messages for each blendshape
+    for (name, value) in data.data.iter() {
+        let address = format!("/avatar/parameters/{}", name);
+        
+        let msg = OscMessage {
+            addr: address,
+            args: vec![OscType::Float(*value)],
+        };
 
+        let packet = OscPacket::Message(msg);
+        let msg_buf = encoder::encode(&packet)
+            .map_err(|e| format!("Failed to encode OSC message: {}", e))?;
+
+        socket
+            .send_to(&msg_buf, target)
+            .await
+            .map_err(|e| format!("Failed to send OSC message for {}: {}", name, e))?;
+    }
 
     Ok(())
 }

@@ -39,8 +39,8 @@ def listen_udp():
                     print(f'Total blendshapes: {len(json_data.get("data", {}))}')
                     
                 except (UnicodeDecodeError, json.JSONDecodeError) as e:
-                    print(f'Error parsing data: {e}')
-                    print(f'Raw data: {data[:100]}...' if len(data) > 100 else data)
+                    # print(f'Error parsing data: {e}')
+                    print(f'Raw data: ' + f'{data[:100]}...' if len(data) > 100 else data)
                     
             except socket.timeout:
                 print(f'[{datetime.datetime.now().strftime("%H:%M:%S")}] No data received for 5 seconds...')
