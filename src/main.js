@@ -30,7 +30,7 @@ async function loadSerialPort() {
     return null;
 }
 
-const modelUrl = '/babble-web/model.onnx';
+const modelUrl = window.__TAURI__ ? 'model.onnx' : '/babble-web/model.onnx';
 const IMAGE_SIZE = 224; // Model's required input size
 
 class BabbleApp {

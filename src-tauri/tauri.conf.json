@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "identifier": "aurabirb.blubber-web",
   "build": {
+    "frontendDist": "../dist",
     "devUrl": "http://localhost:1420/babble-web/",
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build"

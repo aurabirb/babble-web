@@ -3,7 +3,7 @@ import { defineConfig } from 'vite';
 const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
-    base: '/babble-web/',
+    base: process.env.TAURI_ENV_PLATFORM ? '/' : '/babble-web/',
     optimizeDeps: {
         exclude: ['onnxruntime-web']
     },
