@@ -10,26 +10,6 @@ import { listen, emit } from '@tauri-apps/api/event';
 // for commands
 // import { invoke } from '@tauri-apps/api/core';
 
-// Import SerialPort for Tauri environments
-let SerialPort = null;
-
-// Function to dynamically load SerialPort when needed
-async function loadSerialPort() {
-    if (SerialPort) return SerialPort; // Already loaded
-    
-    if (window.__TAURI__) {
-        try {
-            const module = await import('tauri-plugin-serialplugin');
-            SerialPort = module.SerialPort;
-            return SerialPort;
-        } catch (err) {
-            console.warn('Failed to import SerialPort plugin:', err);
-            return null;
-        }
-    }
-    return null;
-}
-
 const modelUrl = window.__TAURI__ ? 'model.onnx' : '/babble-web/model.onnx';
 const IMAGE_SIZE = 224; // Model's required input size
 
@@ -50,7 +30,6 @@ class BabbleApp {
             this.logMessage('Using Tauri plugin for serial communication');
         } else {
             this.serialCamera = null;
-            console.warn('WebSerial is not supported in this browser');
             this.logMessage('WebSerial is not supported in this browser');
         }
 
@@ -94,28 +73,24 @@ class BabbleApp {
 
         this.setupUI();
         this.setupEventListeners();
-        this.initializeSerialPortSelection();
-    }
-
-    async initializeSerialPortSelection() {
-        // Show serial port selection if we're in Tauri environment and serial is selected
-        const cameraSource = document.getElementById('cameraSource');
-        const serialPortSelection = document.getElementById('serialPortSelection');
-        
-        if (cameraSource.value === 'serial' && this.isTauriEnvironment && this.serialCamera) {
-            serialPortSelection.style.display = 'block';
-            await this.refreshSerialPorts();
-        }
+        this.refreshSerialPorts();
     }
 
     async refreshSerialPorts() {
-        const currentSerialPort = await loadSerialPort();
-        if (!currentSerialPort) return;
-        
+        const cameraSource = document.getElementById('cameraSource');
+        const serialPortSelection = document.getElementById('serialPortSelection');
         const serialPortSelect = document.getElementById('serialPortSelect');
         
+        if (cameraSource.value === 'serial' && this.serialCamera?.getAvailablePorts) {
+            serialPortSelection.style.display = 'block';
+        } else {
+            serialPortSelection.style.display = 'none';
+            serialPortSelect.value = '';
+            return;
+        }
+        
         try {
-            const ports = await currentSerialPort.available_ports();
+            const ports = await this.serialCamera.getAvailablePorts();
             const portNames = Object.keys(ports);
             
             // Clear existing options except the first one
@@ -269,13 +244,7 @@ class BabbleApp {
             }
             
             // Show/hide serial port selection based on camera source and environment
-            const selectedSource = cameraSource.value;
-            if (selectedSource === 'serial' && this.isTauriEnvironment && this.serialCamera) {
-                serialPortSelection.style.display = 'block';
-                await this.refreshSerialPorts();
-            } else {
-                serialPortSelection.style.display = 'none';
-            }
+            this.refreshSerialPorts();
         });
 
         // Handle refresh ports button

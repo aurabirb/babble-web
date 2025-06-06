@@ -30,7 +30,6 @@ export class TauriSerialCamera {
         this.currentImageUrl = null;
         this.isListening = false;
         this.portPath = null;
-        this.availablePorts = {};
 
         // Default options - match the original implementation
         this.options = {
@@ -40,18 +39,30 @@ export class TauriSerialCamera {
         console.log(`TauriSerialCamera initialized with options: ${JSON.stringify(this.options)}`);
     }
 
+    async getAvailablePorts() {
+        try {
+            // Get SerialPort class
+            const currentSerialPort = await loadSerialPort();
+            if (!currentSerialPort) {
+                throw new Error('SerialPort not available');
+            }
+            // Get available ports
+            const ports = await currentSerialPort.available_ports();
+            console.log('Available ports:', ports);
+            return ports;
+        } catch (err) {
+            console.error('Failed to get available ports:', err);
+            this._emit('error', err);
+            return {};
+        }
+    }
 
     async requestPort(selectedPortPath = null) {
         try {
             // Get available ports
             console.log('Tauri serial requested...');
-            const currentSerialPort = await loadSerialPort();
-            if (!currentSerialPort) {
-                throw new Error('SerialPort not available');
-            }
-            
-            const ports = await currentSerialPort.available_ports();
-            this.availablePorts = ports;
+
+            const ports = await this.getAvailablePorts()
             const portNames = Object.keys(ports);
             
             if (portNames.length === 0) {
