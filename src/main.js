@@ -25,9 +25,11 @@ class BabbleApp {
             1.0   // dCutoff
         );
         this.isModelInitialized = false;
-        this.frameInterval = 1000 / 60; // 60 FPS = 16.67ms between frames
+        this.targetFps = 60;
+        this.frameInterval = 1000 / this.targetFps; // 60 FPS = 16.67ms between frames
         this.lastFrameTime = 0;
         this.currentFps = 0;
+        this.frameTimeoutId = null;
         this.isVerticallyFlipped = false;
         this.isHorizontallyFlipped = false;
         
@@ -318,9 +320,12 @@ class BabbleApp {
         }
     }
 
-    async processFrame(timestamp) {
+    async processFrame() {
         if (!this.activeCamera || !this.activeCamera.isConnected || !this.isModelInitialized) return;
 
+        // Use Date.now() for timestamp since we're not using requestAnimationFrame anymore
+        const timestamp = Date.now();
+        
         // Calculate FPS
         if (this.lastFrameTime) {
             const deltaTime = timestamp - this.lastFrameTime;
@@ -438,9 +443,10 @@ class BabbleApp {
             this.isPredicting = false;
         }
 
-        // Schedule next frame if still connected
+        // Schedule next frame if still connected using setTimeout instead of requestAnimationFrame
+        // This ensures processing continues even when the tab loses focus
         if (this.isProcessingFrames && this.activeCamera.isConnected) {
-            requestAnimationFrame((t) => this.processFrame(t));
+            this.frameTimeoutId = setTimeout(() => this.processFrame(), this.frameInterval);
         }
     }
 
@@ -449,13 +455,19 @@ class BabbleApp {
         this.isPredicting = false;
         this.lastFrameTime = 0;
         this.currentFps = 0;
-        requestAnimationFrame((t) => this.processFrame(t));
+        // Start the processing loop with setTimeout instead of requestAnimationFrame
+        this.frameTimeoutId = setTimeout(() => this.processFrame(), this.frameInterval);
     }
 
     stopFrameProcessing() {
         this.isProcessingFrames = false;
         this.isPredicting = false;
         this.currentFps = 0;
+        // Clear any pending timeout to prevent memory leaks
+        if (this.frameTimeoutId) {
+            clearTimeout(this.frameTimeoutId);
+            this.frameTimeoutId = null;
+        }
     }
 
     async updateBlendshapes(predictions) {
