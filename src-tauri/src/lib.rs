@@ -17,6 +17,7 @@ fn greet(name: &str) -> String {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_serialplugin::init())
         .invoke_handler(tauri::generate_handler![greet, send_blendshapes, start_udp_listener])
         .setup(|app| {
             if cfg!(debug_assertions) {

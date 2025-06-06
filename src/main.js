@@ -1,4 +1,5 @@
 import { WebSerialCamera } from './serial-camera';
+import { TauriSerialCamera } from './tauri-serial-camera';
 import { WebcamCamera } from './webcam-camera';
 import { BabbleModel } from './babble-model';
 import './style.css';
@@ -14,7 +15,23 @@ const IMAGE_SIZE = 224; // Model's required input size
 
 class BabbleApp {
     constructor() {
-        this.serialCamera = new WebSerialCamera();
+        console.log('Initializing Babble Web App...');
+        // Detect environment and choose appropriate serial implementation
+        this.isTauriEnvironment = window.__TAURI__ !== undefined;
+        this.hasWebSerial = 'serial' in navigator;
+
+        // Initialize serial camera based on environment
+        if (this.hasWebSerial) {
+            this.serialCamera = new WebSerialCamera();
+            this.logMessage('Using WebSerial API for serial communication');
+        } else if (this.isTauriEnvironment) {
+            this.serialCamera = new TauriSerialCamera();
+            this.logMessage('Using Tauri plugin for serial communication');
+        } else {
+            this.serialCamera = null;
+            this.logMessage('WebSerial is not supported in this browser');
+        }
+
         this.webcamCamera = new WebcamCamera();
         this.activeCamera = null;
         this.model = new BabbleModel();
@@ -32,14 +49,14 @@ class BabbleApp {
         this.frameTimeoutId = null;
         this.isVerticallyFlipped = false;
         this.isHorizontallyFlipped = false;
-        
+
         // Filter parameters
         this.filterParams = {
             minCutoff: 3.0,
             beta: 0.9,
             dCutoff: 1.0
         };
-        
+
         // Crop rectangle state
         this.cropRect = {
             x: 0,
@@ -47,7 +64,7 @@ class BabbleApp {
             width: IMAGE_SIZE,
             height: IMAGE_SIZE
         };
-        
+
         // Drawing state
         this.isDrawing = false;
         this.drawStart = { x: 0, y: 0 };
@@ -179,14 +196,20 @@ class BabbleApp {
 
         connectBtn.addEventListener('click', async () => {
             const selectedSource = cameraSource.value;
+            // Check if serial communication is supported for serial camera
+            if (selectedSource === 'serial' && !this.serialCamera) {
+                this.logMessage('Serial communication is not supported in this browser. Please use a browser that supports WebSerial API (Chrome, Edge) or use the Blubber dektop app.');
+            }
+            
             const camera = selectedSource === 'webcam' ? this.webcamCamera : this.serialCamera;
-
-            if (!camera.isConnected) {
-                if (await camera.requestPort()) {
+            
+            if (!camera || !camera.isConnected) {
+                console.log(`Connecting to ${selectedSource} camera...`);
+                if (camera && await camera.requestPort()) {
                     await camera.connect();
                     this.activeCamera = camera;
                     connectBtn.textContent = 'Disconnect';
-                    
+
                     // Initialize model if not already done
                     if (!this.isModelInitialized) {
                         try {
@@ -221,10 +244,12 @@ class BabbleApp {
             flipHorizontalBtn.textContent = `Flip Horizontal: ${this.isHorizontallyFlipped ? 'On' : 'Off'}`;
         });
 
-        this.serialCamera.on('error', (error) => {
-            console.error('Camera error:', error);
-            alert('Camera error: ' + error.message);
-        });
+        if (this.serialCamera) {
+            this.serialCamera.on('error', (error) => {
+                console.error('Serial camera error:', error);
+                alert('Serial camera error: ' + error.message);
+            });
+        }
 
         this.webcamCamera.on('error', (error) => {
             console.error('Webcam error:', error);
@@ -238,7 +263,7 @@ class BabbleApp {
         const rect = preview.getBoundingClientRect();
         const scaleX = preview.width / rect.width;
         const scaleY = preview.height / rect.height;
-        
+
         // Get mouse position relative to canvas and scale it
         const mouseX = (e.clientX - rect.left) * scaleX;
         const mouseY = (e.clientY - rect.top) * scaleY;
@@ -246,7 +271,7 @@ class BabbleApp {
         this.isDrawing = true;
         this.drawStart = { x: mouseX, y: mouseY };
         this.drawEnd = { x: mouseX, y: mouseY };  // Initialize end position
-        
+
         // Initialize crop rectangle at click point
         this.cropRect = {
             x: mouseX,
@@ -264,7 +289,7 @@ class BabbleApp {
         const rect = preview.getBoundingClientRect();
         const scaleX = preview.width / rect.width;
         const scaleY = preview.height / rect.height;
-        
+
         // Get mouse position relative to canvas and scale it
         const mouseX = (e.clientX - rect.left) * scaleX;
         const mouseY = (e.clientY - rect.top) * scaleY;
@@ -298,19 +323,19 @@ class BabbleApp {
         if (this.drawStart.x === this.drawEnd.x && this.drawStart.y === this.drawEnd.y) {
             /** @type {HTMLCanvasElement} */
             const preview = document.getElementById('preview');
-            
+
             // Center a default-sized crop rectangle around the click point
             const centerX = this.drawStart.x;
             const centerY = this.drawStart.y;
-            
+
             // Calculate the crop rectangle position, ensuring it stays within bounds
             let x = centerX - IMAGE_SIZE / 2;
             let y = centerY - IMAGE_SIZE / 2;
-            
+
             // Constrain to preview boundaries
             x = Math.max(0, Math.min(x, preview.width - IMAGE_SIZE));
             y = Math.max(0, Math.min(y, preview.height - IMAGE_SIZE));
-            
+
             this.cropRect = {
                 x: x,
                 y: y,
@@ -325,7 +350,7 @@ class BabbleApp {
 
         // Use Date.now() for timestamp since we're not using requestAnimationFrame anymore
         const timestamp = Date.now();
-        
+
         // Calculate FPS
         if (this.lastFrameTime) {
             const deltaTime = timestamp - this.lastFrameTime;
@@ -351,13 +376,13 @@ class BabbleApp {
             preview.width = img.width;
             preview.height = img.height;
             const ctx = preview.getContext('2d', { willReadFrequently: true });
-            
+
             // Clear the canvas
             ctx.clearRect(0, 0, preview.width, preview.height);
-            
+
             // Save the current context state
             ctx.save();
-            
+
             // Apply transformations based on flip states
             if (this.isHorizontallyFlipped) {
                 ctx.translate(preview.width, 0);
@@ -367,10 +392,10 @@ class BabbleApp {
                 ctx.translate(0, preview.height);
                 ctx.scale(1, -1);
             }
-            
+
             // Draw the transformed image
             ctx.drawImage(img, 0, 0);
-            
+
             // Restore the context state
             ctx.restore();
 
@@ -430,10 +455,10 @@ class BabbleApp {
                 this.isPredicting = true;
                 // Use the cropped preview for predictions
                 const predictions = await this.model.predict(previewCropped);
-                
+
                 // Apply One Euro Filter to the predictions
                 const filteredPredictions = this.oneEuroFilter.filter(predictions, timestamp / 1000.0);
-                
+
                 // Update blendshapes with filtered predictions
                 this.updateBlendshapes(filteredPredictions);
                 this.isPredicting = false;
@@ -478,10 +503,10 @@ class BabbleApp {
         predictions.forEach((value, index) => {
             // Get the blendshape name from the model class
             const blendshapeName = BabbleModel.blendshapeNames[index] || `Shape ${index}`;
-            
+
             // Determine if the value is positive or negative
             const posValue = Math.max(value, 0);
-            
+
             const bar = document.createElement('div');
             bar.className = 'blendshape-bar';
             bar.innerHTML = `
