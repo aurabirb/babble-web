@@ -23,7 +23,7 @@ pub async fn send_blendshapes(
 
     let target = "127.0.0.1:8883".parse::<SocketAddr>().unwrap();
     let json_data = serde_json::to_string(&data).map_err(|e| e.to_string())?;
-    println!("tx blendshapes {:?}", json_data);
+    // println!("tx blendshapes {:?}", json_data);
 
     socket
         .send_to(json_data.as_bytes(), target)
