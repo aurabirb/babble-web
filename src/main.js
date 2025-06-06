@@ -31,6 +31,12 @@ class BabbleApp {
         this.isVerticallyFlipped = false;
         this.isHorizontallyFlipped = false;
         
+        // Filter parameters
+        this.filterParams = {
+            minCutoff: 3.0,
+            beta: 0.9,
+            dCutoff: 1.0
+        };
         
         // Crop rectangle state
         this.cropRect = {
@@ -77,6 +83,20 @@ class BabbleApp {
                         <button id="flipHorizontalBtn">Flip Horizontal: Off</button>
                         <span id="fpsCounter">FPS: 0</span>
                     </div>
+                    <div class="filter-controls">
+                        <div class="filter-param">
+                            <label for="minCutoff">Min Cutoff: <span id="minCutoffValue">3.0</span></label>
+                            <input type="range" id="minCutoff" min="0.1" max="10.0" step="0.1" value="3.0">
+                        </div>
+                        <div class="filter-param">
+                            <label for="beta">Beta: <span id="betaValue">0.9</span></label>
+                            <input type="range" id="beta" min="0.1" max="1.0" step="0.01" value="0.9">
+                        </div>
+                        <div class="filter-param">
+                            <label for="dCutoff">D Cutoff: <span id="dCutoffValue">1.0</span></label>
+                            <input type="range" id="dCutoff" min="0.1" max="5.0" step="0.1" value="1.0">
+                        </div>
+                    </div>
                 </div>
                 <div class="main-content">
                     <div class="preview">
@@ -102,6 +122,33 @@ class BabbleApp {
         const preview = document.getElementById('preview');
         preview.style.cursor = 'grab';
         const fpsCounter = document.getElementById('fpsCounter');
+
+        // Filter parameter sliders
+        const minCutoffSlider = document.getElementById('minCutoff');
+        const betaSlider = document.getElementById('beta');
+        const dCutoffSlider = document.getElementById('dCutoff');
+        const minCutoffValue = document.getElementById('minCutoffValue');
+        const betaValue = document.getElementById('betaValue');
+        const dCutoffValue = document.getElementById('dCutoffValue');
+
+        // Add event listeners for filter parameter sliders
+        minCutoffSlider.addEventListener('input', (e) => {
+            this.filterParams.minCutoff = parseFloat(e.target.value);
+            minCutoffValue.textContent = e.target.value;
+            this.updateFilter();
+        });
+
+        betaSlider.addEventListener('input', (e) => {
+            this.filterParams.beta = parseFloat(e.target.value);
+            betaValue.textContent = e.target.value;
+            this.updateFilter();
+        });
+
+        dCutoffSlider.addEventListener('input', (e) => {
+            this.filterParams.dCutoff = parseFloat(e.target.value);
+            dCutoffValue.textContent = e.target.value;
+            this.updateFilter();
+        });
 
         // Listen for UDP messages from the backend
         // const unlisten = listen('udp-message', (event) => {
@@ -444,6 +491,16 @@ class BabbleApp {
         this.logMessage(`Sending blendshapes...`);
         await emit('send_blendshapes', { data: blendshapes });
         this.logMessage(`Sent ${BabbleModel.blendshapeNames.length} blendshapes`);
+    }
+
+    updateFilter() {
+        // Create a new filter with updated parameters
+        this.oneEuroFilter = new MultiOneEuroFilter(
+            BabbleModel.blendshapeNames.length,
+            this.filterParams.minCutoff,
+            this.filterParams.beta,
+            this.filterParams.dCutoff
+        );
     }
 }
 

@@ -224,3 +224,27 @@ button:focus-visible {
   min-height: 200px;
   white-space: pre-wrap;
 }
+
+.filter-controls {
+    display: flex;
+    gap: 20px;
+    padding: 10px;
+
+    border-radius: 5px;
+    margin-top: 10px;
+}
+
+.filter-param {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.filter-param label {
+    font-size: 14px;
+    /* color: #333; */
+}
+
+.filter-param input[type="range"] {
+    width: 150px;
+}
