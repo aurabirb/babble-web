@@ -106,6 +106,11 @@ class BabbleApp {
                         <button id="flipHorizontalBtn">Flip Horizontal: Off</button>
                         <span id="fpsCounter">FPS: 0</span>
                     </div>
+                    <div class="udp-controls">
+                        <label for="udpPort">UDP Port:</label>
+                        <input type="number" id="udpPort" min="1" max="65535" value="8883" placeholder="8883">
+                        <span id="udpStatus">Ready</span>
+                    </div>
                     <div class="filter-controls">
                         <div class="filter-param">
                             <label for="minCutoff">Min Cutoff: <span id="minCutoffValue">3.0</span></label>
@@ -523,15 +528,19 @@ class BabbleApp {
             blendshapesList.appendChild(bar);
         });
 
+        // Get the selected UDP port
+        const udpPortInput = document.getElementById('udpPort');
+        const udpPort = parseInt(udpPortInput.value) || 8883;
+
         // Create blendshapes object
         const blendshapes = {};
         BabbleModel.blendshapeNames.forEach((name, index) => {
             blendshapes[name] = predictions[index];
         });
 
-        this.logMessage(`Sending blendshapes...`);
-        await emit('send_blendshapes', { data: blendshapes });
-        this.logMessage(`Sent ${BabbleModel.blendshapeNames.length} blendshapes`);
+        this.logMessage(`Sending blendshapes to port ${udpPort}...`);
+        await emit('send_blendshapes', { data: blendshapes, port: udpPort });
+        this.logMessage(`Sent ${BabbleModel.blendshapeNames.length} blendshapes to port ${udpPort}`);
     }
 
     updateFilter() {

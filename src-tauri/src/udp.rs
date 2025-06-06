@@ -8,6 +8,7 @@ use std::collections::HashMap;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BlendshapeData {
   pub data: HashMap<String, f32>,
+  pub port: u16,
 }
 
 #[tauri::command]
@@ -19,7 +20,8 @@ pub async fn send_blendshapes(
         .await
         .map_err(|e| e.to_string())?;
 
-    let target = "127.0.0.1:8883".parse::<SocketAddr>().unwrap();
+    let target = format!("127.0.0.1:{}", data.port).parse::<SocketAddr>()
+        .map_err(|e| format!("Invalid target address: {}", e))?;
 
     // Send OSC messages for each blendshape
     for (name, value) in data.data.iter() {

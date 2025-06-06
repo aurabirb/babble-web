@@ -2,14 +2,14 @@
 import socket
 import json
 import datetime
+import sys
 
-def listen_udp():
+def listen_udp(port=8883):
     # Create UDP socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.settimeout(5.0)  # 5 second timeout to detect when data stops
     
-    # Bind to localhost on port 8883
-    server_address = ('127.0.0.1', 8883)
+    server_address = ('127.0.0.1', port)
     print(f'Starting UDP listener on {server_address[0]}:{server_address[1]}')
     print('Waiting for UDP messages... (Press Ctrl+C to stop)')
     sock.bind(server_address)
@@ -51,4 +51,5 @@ def listen_udp():
         sock.close()
 
 if __name__ == '__main__':
-    listen_udp()
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8883
+    listen_udp(port)

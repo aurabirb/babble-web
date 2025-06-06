@@ -238,6 +238,46 @@ button:focus-visible {
   align-content: start;
 }
 
+.udp-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
+  padding: 10px;
+  background-color: #1a1a1a;
+  border-radius: 5px;
+}
+
+.udp-controls label {
+  color: rgba(255, 255, 255, 0.87);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.udp-controls input[type="number"] {
+  width: 100px;
+  padding: 5px 8px;
+  border: 1px solid #333;
+  border-radius: 4px;
+  background-color: #2a2a2a;
+  color: rgba(255, 255, 255, 0.87);
+  font-size: 14px;
+}
+
+.udp-controls input[type="number"]:focus {
+  outline: none;
+  border-color: #646cff;
+}
+
+.udp-controls #udpStatus {
+  color: #4CAF50;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 6px;
+  background-color: rgba(76, 175, 80, 0.1);
+  border-radius: 3px;
+}
+
 .filter-controls {
     display: flex;
     gap: 20px;

@@ -32,10 +32,13 @@ pub fn run() {
             app.listen("send_blendshapes", move |event| {
                 println!("received blendshapes event");
                 if let Ok(payload) = serde_json::from_str::<BlendshapeData>(&event.payload()) {
-                    println!("jawOpen: {:?}", payload.data["jawOpen"]);
+                    println!("jawOpen: {:?}", payload.data.get("jawOpen"));
+                    println!("Sending to port: {}", payload.port);
                     let handle = app_handle.clone();
                     tauri::async_runtime::spawn(async move {
-                        send_blendshapes(handle, payload.clone()).await.unwrap();
+                        if let Err(e) = send_blendshapes(handle, payload.clone()).await {
+                            eprintln!("Error sending blendshapes: {}", e);
+                        }
                     });
                 }
             });
