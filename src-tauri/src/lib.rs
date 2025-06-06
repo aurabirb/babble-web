@@ -4,12 +4,8 @@ use std::collections::HashMap;
 
 mod udp;
 use tauri::{Emitter, Listener};
-use udp::start_udp_listener;
+use udp::{send_blendshapes, start_udp_listener, BlendshapeData};
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct BlendshapeData {
-    pub data: HashMap<String, f32>,
-}
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -21,7 +17,7 @@ fn greet(name: &str) -> String {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, start_udp_listener])
+        .invoke_handler(tauri::generate_handler![greet, send_blendshapes, start_udp_listener])
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -31,10 +27,15 @@ pub fn run() {
                 )?;
             }
 
-            app.listen("send_blendshapes", |event| {
+            let app_handle = app.handle().clone();
+            app.listen("send_blendshapes", move |event| {
                 println!("received blendshapes event");
                 if let Ok(payload) = serde_json::from_str::<BlendshapeData>(&event.payload()) {
                     println!("jawOpen: {:?}", payload.data["jawOpen"]);
+                    let handle = app_handle.clone();
+                    tauri::async_runtime::spawn(async move {
+                        send_blendshapes(handle, payload.clone()).await.unwrap();
+                    });
                 }
             });
 
