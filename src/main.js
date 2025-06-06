@@ -77,7 +77,9 @@ class BabbleApp {
     }
 
     logMessage(message) {
+        console.log(message);
         const logElement = document.querySelector('#log');
+        if (!logElement) return; // the app has not been initialized yet
         const messages = logElement.querySelectorAll('pre');
         if (messages.length >= 50) {
             logElement.removeChild(logElement.lastChild);
