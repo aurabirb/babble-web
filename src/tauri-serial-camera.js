@@ -1,4 +1,21 @@
-import { SerialPort } from 'tauri-plugin-serialplugin';
+let SerialPort = null;
+
+// Function to dynamically load SerialPort when needed
+async function loadSerialPort() {
+    if (SerialPort) return SerialPort; // Already loaded
+    
+    if (window.__TAURI__) {
+        try {
+            const module = await import('tauri-plugin-serialplugin');
+            SerialPort = module.SerialPort;
+            return SerialPort;
+        } catch (err) {
+            console.warn('Failed to import SerialPort plugin:', err);
+            return null;
+        }
+    }
+    return null;
+}
 
 export class TauriSerialCamera {
     constructor(options = {}) {
@@ -28,7 +45,12 @@ export class TauriSerialCamera {
         try {
             // Get available ports
             console.log('Tauri serial requested...');
-            const ports = await SerialPort.available_ports();
+            const currentSerialPort = await loadSerialPort();
+            if (!currentSerialPort) {
+                throw new Error('SerialPort not available');
+            }
+            
+            const ports = await currentSerialPort.available_ports();
             this.availablePorts = ports;
             const portNames = Object.keys(ports);
             
@@ -60,8 +82,14 @@ export class TauriSerialCamera {
         }
 
         try {
+            // Get SerialPort class
+            const currentSerialPort = await loadSerialPort();
+            if (!currentSerialPort) {
+                throw new Error('SerialPort not available');
+            }
+            
             // Create SerialPort instance
-            this.port = new SerialPort({
+            this.port = new currentSerialPort({
                 path: this.portPath,
                 baudRate: this.options.baudRate
             });

@@ -12,13 +12,22 @@ import { listen, emit } from '@tauri-apps/api/event';
 
 // Import SerialPort for Tauri environments
 let SerialPort = null;
-if (window.__TAURI__) {
-    try {
-        const module = await import('tauri-plugin-serialplugin');
-        SerialPort = module.SerialPort;
-    } catch (err) {
-        console.warn('Failed to import SerialPort plugin:', err);
+
+// Function to dynamically load SerialPort when needed
+async function loadSerialPort() {
+    if (SerialPort) return SerialPort; // Already loaded
+    
+    if (window.__TAURI__) {
+        try {
+            const module = await import('tauri-plugin-serialplugin');
+            SerialPort = module.SerialPort;
+            return SerialPort;
+        } catch (err) {
+            console.warn('Failed to import SerialPort plugin:', err);
+            return null;
+        }
     }
+    return null;
 }
 
 const modelUrl = '/babble-web/model.onnx';
@@ -100,12 +109,13 @@ class BabbleApp {
     }
 
     async refreshSerialPorts() {
-        if (!SerialPort) return;
+        const currentSerialPort = await loadSerialPort();
+        if (!currentSerialPort) return;
         
         const serialPortSelect = document.getElementById('serialPortSelect');
         
         try {
-            const ports = await SerialPort.available_ports();
+            const ports = await currentSerialPort.available_ports();
             const portNames = Object.keys(ports);
             
             // Clear existing options except the first one
