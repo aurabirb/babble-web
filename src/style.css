@@ -315,7 +315,7 @@ button:focus-visible {
     width: 150px;
 }
 
-.filter-toggle {
+.filter-toggle,.calibration-toggle,.calibration-button {
     align-self: flex-end;
     margin-bottom: 5px;
     font-size: 14px;

@@ -68,6 +68,7 @@ class BabbleApp {
         this.calibrationDuration = 60000; // 1 minute in milliseconds
         this.blendshapeRanges = {};
         this.isCalibrated = false;
+        this.calibrationToggleEnabled = true; // Toggle for applying calibration scaling
         
         // Initialize blendshape ranges
         BabbleModel.blendshapeNames.forEach(name => {
@@ -205,8 +206,8 @@ class BabbleApp {
                             <input type="range" id="dCutoff" min="0.1" max="5.0" step="0.1" value="1.0">
                         </div>
                         <button id="filterToggleBtn" class="filter-toggle">Filter: On</button>
-                        <button id="calibrateBtn" class="calibration-toggle">Calibrate</button>
-                        <button id="resetCalibrationBtn" class="calibration-reset">Reset Calibration</button>
+                        <button id="toggleCalibrationBtn" class="calibration-toggle">Calibration: On</button>
+                        <button id="calibrateBtn" class="calibration-toggle">Recalibrate</button>
                     </div>
                 </div>
                 <div class="main-content">
@@ -268,7 +269,7 @@ class BabbleApp {
         const dCutoffValue = document.getElementById('dCutoffValue');
         const filterToggleBtn = document.getElementById('filterToggleBtn');
         const calibrateBtn = document.getElementById('calibrateBtn');
-        const resetCalibrationBtn = document.getElementById('resetCalibrationBtn');
+        const toggleCalibrationBtn = document.getElementById('toggleCalibrationBtn');
 
         // Add event listeners for filter parameter sliders
         minCutoffSlider.addEventListener('input', (e) => {
@@ -297,12 +298,14 @@ class BabbleApp {
 
         // Calibration toggle button event listener
         calibrateBtn.addEventListener('click', () => {
-            this.toggleCalibration();
+            if (this.isProcessingFrames) {
+                this.toggleCalibration();
+            }
         });
 
-        // Reset calibration button event listener
-        resetCalibrationBtn.addEventListener('click', () => {
-            this.resetCalibration();
+        // Calibration toggle button event listener
+        toggleCalibrationBtn.addEventListener('click', () => {
+            this.toggleCalibrationScaling();
         });
 
         // Listen for UDP messages from the backend
@@ -762,7 +765,7 @@ class BabbleApp {
         this.isCalibrated = true;
         
         const calibrateBtn = document.getElementById('calibrateBtn');
-        calibrateBtn.textContent = 'Calibrate';
+        calibrateBtn.textContent = 'Recalibrate';
         
         // Log the recorded ranges
         this.logMessage('Calibration completed - recorded ranges:');
@@ -790,7 +793,8 @@ class BabbleApp {
     }
 
     rescaleBlendshapes(predictions) {
-        if (!this.isCalibrated) return predictions;
+        // Only apply calibration rescaling if both calibrated and toggle is enabled
+        if (!this.isCalibrated || !this.calibrationToggleEnabled) return predictions;
         
         return predictions.map((value, index) => {
             const name = BabbleModel.blendshapeNames[index];
@@ -809,22 +813,15 @@ class BabbleApp {
         });
     }
 
-    resetCalibration() {
-        // Stop calibration if it's running
-        if (this.isCalibrationEnabled) {
-            this.isCalibrationEnabled = false;
-            this.calibrationStartTime = null;
-            const calibrateBtn = document.getElementById('calibrateBtn');
-            calibrateBtn.textContent = 'Calibrate';
-        }
+    toggleCalibrationScaling() {
+        this.calibrationToggleEnabled = !this.calibrationToggleEnabled;
+        const toggleCalibrationBtn = document.getElementById('toggleCalibrationBtn');
+        toggleCalibrationBtn.textContent = `Calibration: ${this.calibrationToggleEnabled ? 'On' : 'Off'}`;
         
-        // Reset all ranges to default 0-1 range
-        BabbleModel.blendshapeNames.forEach(name => {
-            this.blendshapeRanges[name] = { min: 0.0, max: 1.0 };
-        });
-        
-        this.isCalibrated = false;
-        this.logMessage('Calibration reset - all blendshape ranges set to 0.0 - 1.0');
+        const statusMessage = this.calibrationToggleEnabled ? 
+            'Calibration scaling enabled - using recorded blendshape ranges' : 
+            'Calibration scaling disabled - using raw blendshape values';
+        this.logMessage(statusMessage);
     }
 }
 // Initialize the app when the page loads
