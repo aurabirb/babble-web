@@ -166,12 +166,25 @@ button:focus-visible {
   border-radius: 4px;
   height: 20px;
   overflow: hidden;
+  position: relative;
 }
 
 .progress-bar {
   height: 100%;
   background-color: #646cff;
-  transition: width 0.3s ease;
+  /* transition: width 0.3s ease; */
+}
+
+.progress-bar.unfiltered {
+  background-color: #ffffff;
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 30%;
+}
+
+.progress-bar.filtered {
+  background-color: #2129c2;
 }
 
 .value {
@@ -300,6 +313,13 @@ button:focus-visible {
 
 .filter-param input[type="range"] {
     width: 150px;
+}
+
+.filter-toggle {
+    align-self: flex-end;
+    margin-bottom: 5px;
+    font-size: 14px;
+    padding: 0.4em 0.8em;
 }
 
 #serialPortSelection {

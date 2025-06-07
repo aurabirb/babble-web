@@ -59,6 +59,9 @@ class BabbleApp {
             dCutoff: 1.0
         };
 
+        // Filter state
+        this.isFilterEnabled = true;
+
         // Crop rectangle state
         this.cropRect = {
             x: 0,
@@ -189,6 +192,7 @@ class BabbleApp {
                             <label for="dCutoff">D Cutoff: <span id="dCutoffValue">1.0</span></label>
                             <input type="range" id="dCutoff" min="0.1" max="5.0" step="0.1" value="1.0">
                         </div>
+                        <button id="filterToggleBtn" class="filter-toggle">Filter: On</button>
                     </div>
                 </div>
                 <div class="main-content">
@@ -226,6 +230,7 @@ class BabbleApp {
         const minCutoffValue = document.getElementById('minCutoffValue');
         const betaValue = document.getElementById('betaValue');
         const dCutoffValue = document.getElementById('dCutoffValue');
+        const filterToggleBtn = document.getElementById('filterToggleBtn');
 
         // Add event listeners for filter parameter sliders
         minCutoffSlider.addEventListener('input', (e) => {
@@ -244,6 +249,12 @@ class BabbleApp {
             this.filterParams.dCutoff = parseFloat(e.target.value);
             dCutoffValue.textContent = e.target.value;
             this.updateFilter();
+        });
+
+        // Filter toggle button event listener
+        filterToggleBtn.addEventListener('click', () => {
+            this.isFilterEnabled = !this.isFilterEnabled;
+            filterToggleBtn.textContent = `Filter: ${this.isFilterEnabled ? 'On' : 'Off'}`;
         });
 
         // Listen for UDP messages from the backend
@@ -546,13 +557,13 @@ class BabbleApp {
             if (!this.isPredicting && this.cropRect.width > 0 && this.cropRect.height > 0) {
                 this.isPredicting = true;
                 // Use the cropped preview for predictions
-                const predictions = await this.model.predict(previewCropped);
+                const unfilteredPredictions = await this.model.predict(previewCropped);
 
                 // Apply One Euro Filter to the predictions
-                const filteredPredictions = this.oneEuroFilter.filter(predictions, timestamp / 1000.0);
+                const filteredPredictions = this.oneEuroFilter.filter(unfilteredPredictions, timestamp / 1000.0);
 
-                // Update blendshapes with filtered predictions
-                this.updateBlendshapes(filteredPredictions);
+                // Update blendshapes with both predictions for display
+                this.updateBlendshapes(unfilteredPredictions, filteredPredictions, this.isFilterEnabled);
                 this.isPredicting = false;
             }
         } catch (err) {
@@ -587,26 +598,36 @@ class BabbleApp {
         }
     }
 
-    async updateBlendshapes(predictions) {
+    async updateBlendshapes(unfilteredPredictions, filteredPredictions, isFilterEnabled) {
+        const outputPredictions = isFilterEnabled ? filteredPredictions : unfilteredPredictions;
+
         const blendshapesList = document.getElementById('blendshapesList');
         blendshapesList.innerHTML = '';
 
         // Create bars for each prediction
-        predictions.forEach((value, index) => {
+        unfilteredPredictions.forEach((_, index) => {
             // Get the blendshape name from the model class
             const blendshapeName = BabbleModel.blendshapeNames[index] || `Shape ${index}`;
 
-            // Determine if the value is positive or negative
-            const posValue = Math.max(value, 0);
+            // Get corresponding filtered value
+            const unfilteredValue = unfilteredPredictions[index];
+            const filteredValue = filteredPredictions[index];
+            const outputValue = outputPredictions[index];
+
+            // Determine if the values are positive or negative
+            const unfilteredPosValue = Math.max(unfilteredValue, 0);
+            const filteredPosValue = Math.max(filteredValue, 0);
+            const outputPosValue = Math.max(outputValue, 0);
 
             const bar = document.createElement('div');
             bar.className = 'blendshape-bar';
             bar.innerHTML = `
                 <span class="label">${blendshapeName}</span>
                 <div class="progress">
-                    <div class="progress-bar" style="width: ${posValue * 100}%"></div>
+                    <div class="progress-bar unfiltered" style="width: ${unfilteredPosValue * 100}%;"></div>
+                    <div class="progress-bar filtered" style="width: ${outputPosValue * 100}%;"></div>
                 </div>
-                <span class="value">${(posValue * 100).toFixed(1)}%</span>
+                <span class="value">${(outputPosValue * 100).toFixed(1)}%</span>
             `;
             blendshapesList.appendChild(bar);
         });
@@ -615,10 +636,10 @@ class BabbleApp {
         const udpPortInput = document.getElementById('udpPort');
         const udpPort = parseInt(udpPortInput.value) || 8883;
 
-        // Create blendshapes object
+        // Create blendshapes object using output predictions
         const blendshapes = {};
         BabbleModel.blendshapeNames.forEach((name, index) => {
-            blendshapes[name] = predictions[index];
+            blendshapes[name] = outputPredictions[index];
         });
 
         const udpStatus = document.querySelector('#udpStatus');
