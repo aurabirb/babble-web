@@ -205,7 +205,7 @@ class BabbleApp {
                             <input type="range" id="dCutoff" min="0.1" max="5.0" step="0.1" value="1.0">
                         </div>
                         <button id="filterToggleBtn" class="filter-toggle">Filter: On</button>
-                        <button id="calibrateBtn" class="calibration-toggle">Calibrate: Off</button>
+                        <button id="calibrateBtn" class="calibration-toggle">Calibrate</button>
                         <button id="resetCalibrationBtn" class="calibration-reset">Reset Calibration</button>
                     </div>
                 </div>
@@ -741,7 +741,7 @@ class BabbleApp {
                 this.blendshapeRanges[name] = { min: Infinity, max: -Infinity };
             });
             
-            calibrateBtn.textContent = 'Calibrate: On';
+            calibrateBtn.textContent = 'Calibrating...';
             this.logMessage(`Calibration started - recording blendshape ranges for ${this.calibrationDuration / 1000} seconds`);
             
             // Set timeout to automatically stop calibration after 1 minute
@@ -762,7 +762,7 @@ class BabbleApp {
         this.isCalibrated = true;
         
         const calibrateBtn = document.getElementById('calibrateBtn');
-        calibrateBtn.textContent = 'Calibrate: Off';
+        calibrateBtn.textContent = 'Calibrate';
         
         // Log the recorded ranges
         this.logMessage('Calibration completed - recorded ranges:');
@@ -815,7 +815,7 @@ class BabbleApp {
             this.isCalibrationEnabled = false;
             this.calibrationStartTime = null;
             const calibrateBtn = document.getElementById('calibrateBtn');
-            calibrateBtn.textContent = 'Calibrate: Off';
+            calibrateBtn.textContent = 'Calibrate';
         }
         
         // Reset all ranges to default 0-1 range

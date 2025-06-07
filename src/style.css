@@ -176,15 +176,15 @@ button:focus-visible {
 }
 
 .progress-bar.unfiltered {
-  background-color: #ffffff;
+  background-color: #4100e5;
   position: absolute;
   top: 0;
   left: 0;
-  opacity: 30%;
+  height: 20%;
 }
 
 .progress-bar.filtered {
-  background-color: #2129c2;
+  background-color: #646cff;
 }
 
 .value {
