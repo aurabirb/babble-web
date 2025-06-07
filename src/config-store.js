@@ -16,7 +16,7 @@ export class ConfigStore {
             isHorizontallyFlipped: false,
             
             // OSC settings
-            udpPort: 8883,
+            udpPort: 8888,
             
             // Filter parameters
             filterParams: {

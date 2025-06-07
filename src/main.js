@@ -158,7 +158,7 @@ class BabbleApp {
                 isHorizontallyFlipped: this.isHorizontallyFlipped,
                 
                 // OSC settings
-                udpPort: parseInt(document.getElementById('udpPort')?.value) || 8883,
+                udpPort: parseInt(document.getElementById('udpPort')?.value) || 8888,
                 
                 // Filter parameters
                 filterParams: { ...this.filterParams },
@@ -188,7 +188,7 @@ class BabbleApp {
             return;
         }
         const udpPortInput = document.getElementById('udpPort');
-        const udpPort = parseInt(udpPortInput.value) || 8883;
+        const udpPort = parseInt(udpPortInput.value) || 8888;
         const udpStatus = document.querySelector('#udpStatus');
 
         if (this.oscClient) this.oscClient.disconnect();
@@ -270,7 +270,7 @@ class BabbleApp {
                     </div>
                     <div class="udp-controls">
                         <label for="udpPort">OSC Port:</label>
-                        <input type="number" id="udpPort" min="1" max="65535" value="8883" placeholder="8883">
+                        <input type="number" id="udpPort" min="1" max="65535" value="8888" placeholder="8888">
                         <span id="udpStatus" class="udpStatus">${connType}</span>
                         <div id="serialPortSelection" style="display: none;">
                             <select id="serialPortSelect">
@@ -864,7 +864,7 @@ class BabbleApp {
 
         // Get the selected UDP port
         const udpPortInput = document.getElementById('udpPort');
-        const udpPort = parseInt(udpPortInput.value) || 8883;
+        const udpPort = parseInt(udpPortInput.value) || 8888;
 
         // Create blendshapes object using output predictions
         const blendshapes = {};
