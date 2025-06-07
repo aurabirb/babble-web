@@ -11,7 +11,7 @@ import { listen, emit } from '@tauri-apps/api/event';
 // for commands
 // import { invoke } from '@tauri-apps/api/core';
 
-const modelUrl = window.__TAURI__ ? 'model.onnx' : '/babble-web/model.onnx';
+const modelUrl = window.__TAURI__ ? '/model.onnx' : '/babble-web/model.onnx';
 const IMAGE_SIZE = 224; // Model's required input size
 
 class BabbleApp {
