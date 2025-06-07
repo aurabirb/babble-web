@@ -5,6 +5,7 @@ import { OSCClient } from './osc-client.js';
 import { BabbleModel } from './babble-model';
 import './style.css';
 import { MultiOneEuroFilter } from './one-euro-filter.js';
+import { ConfigStore } from './config-store.js';
 
 // for events: https://v2.tauri.app/develop/calling-rust/
 import { listen, emit } from '@tauri-apps/api/event';
@@ -21,6 +22,10 @@ class BabbleApp {
         this.isTauriEnvironment = window.__TAURI__ !== undefined;
         console.log(`Is Tauri environment: ${this.isTauriEnvironment}`);
         this.hasWebSerial = 'serial' in navigator;
+
+        // Initialize configuration store
+        this.configStore = new ConfigStore();
+        this.selectedSerialPort = '';
 
         // Initialize serial camera based on environment
         if (this.hasWebSerial) {
@@ -88,12 +93,94 @@ class BabbleApp {
         this.drawStart = { x: 0, y: 0 };
         this.drawEnd = { x: 0, y: 0 };  // Add end position tracking
 
-        this.setupUI();
-        this.setupEventListeners();
-        this.refreshSerialPorts();
-        this.reconnectOSC();
-        this.updateFilter();
-        console.log('Babble Web App initialized');
+        // Initialize app with configuration
+        this.initializeWithConfig();
+    }
+
+    async initializeWithConfig() {
+        try {
+            // Load configuration before setting up UI
+            await this.loadConfiguration();
+            
+            this.setupUI();
+            this.setupEventListeners();
+            this.refreshSerialPorts();
+            this.reconnectOSC();
+            this.updateFilter();
+            console.log('Babble Web App initialized with saved configuration');
+        } catch (error) {
+            console.error('Failed to initialize with configuration:', error);
+            // Fall back to default initialization
+            this.setupUI();
+            this.setupEventListeners();
+            this.refreshSerialPorts();
+            this.reconnectOSC();
+            this.updateFilter();
+            console.log('Babble Web App initialized with default configuration');
+        }
+    }
+
+    async loadConfiguration() {
+        try {
+            const config = await this.configStore.loadConfig();
+            
+            // Apply loaded configuration
+            this.isVerticallyFlipped = config.isVerticallyFlipped;
+            this.isHorizontallyFlipped = config.isHorizontallyFlipped;
+            this.selectedSerialPort = config.selectedSerialPort;
+            this.filterParams = { ...config.filterParams };
+            this.isFilterEnabled = config.isFilterEnabled;
+            this.calibrationToggleEnabled = config.calibrationToggleEnabled;
+            this.blendshapeRanges = { ...config.blendshapeRanges };
+            this.isCalibrated = config.isCalibrated;
+            this.cropRect = { ...config.cropRect };
+            this.targetFps = config.targetFps;
+            this.frameInterval = 1000 / this.targetFps;
+            
+            console.log('Configuration loaded successfully');
+        } catch (error) {
+            console.error('Failed to load configuration:', error);
+        }
+    }
+
+    async saveConfiguration() {
+        // throttle save to avoid excessive writes
+        if (this.lastSaveTime && Date.now() - this.lastSaveTime < 1000) {
+            return;
+        }
+        this.lastSaveTime = Date.now();
+        try {
+            const config = {
+                // Camera settings
+                cameraSource: document.getElementById('cameraSource')?.value || 'serial',
+                selectedSerialPort: this.selectedSerialPort,
+                isVerticallyFlipped: this.isVerticallyFlipped,
+                isHorizontallyFlipped: this.isHorizontallyFlipped,
+                
+                // OSC settings
+                udpPort: parseInt(document.getElementById('udpPort')?.value) || 8883,
+                
+                // Filter parameters
+                filterParams: { ...this.filterParams },
+                isFilterEnabled: this.isFilterEnabled,
+                
+                // Calibration settings
+                calibrationToggleEnabled: this.calibrationToggleEnabled,
+                blendshapeRanges: { ...this.blendshapeRanges },
+                isCalibrated: this.isCalibrated,
+                
+                // Crop rectangle
+                cropRect: { ...this.cropRect },
+                
+                // Performance settings
+                targetFps: this.targetFps
+            };
+            
+            await this.configStore.saveConfig(config);
+            console.log('Configuration saved successfully');
+        } catch (error) {
+            console.error('Failed to save configuration:', error);
+        }
     }
 
     async reconnectOSC() {
@@ -226,6 +313,82 @@ class BabbleApp {
 
         // Generate blendshape HTML once
         this.generateBlendshapeHTML();
+        
+        // Apply loaded configuration to UI elements
+        this.applyConfigurationToUI();
+    }
+
+    applyConfigurationToUI() {
+        // Apply camera source selection
+        const cameraSource = document.getElementById('cameraSource');
+        if (cameraSource && this.configStore) {
+            // Set the camera source from loaded config or use current value
+            this.configStore.loadConfig().then(config => {
+                if (config.cameraSource) {
+                    cameraSource.value = config.cameraSource;
+                }
+            });
+        }
+
+        // Apply UDP port
+        const udpPortInput = document.getElementById('udpPort');
+        if (udpPortInput) {
+            this.configStore.loadConfig().then(config => {
+                udpPortInput.value = config.udpPort.toString();
+            });
+        }
+
+        // Apply flip button states
+        const flipVerticalBtn = document.getElementById('flipVerticalBtn');
+        const flipHorizontalBtn = document.getElementById('flipHorizontalBtn');
+        if (flipVerticalBtn && flipHorizontalBtn) {
+            flipVerticalBtn.textContent = `Flip Vertical: ${this.isVerticallyFlipped ? 'On' : 'Off'}`;
+            flipHorizontalBtn.textContent = `Flip Horizontal: ${this.isHorizontallyFlipped ? 'On' : 'Off'}`;
+        }
+
+        // Apply filter parameters
+        const minCutoffSlider = document.getElementById('minCutoff');
+        const betaSlider = document.getElementById('beta');
+        const dCutoffSlider = document.getElementById('dCutoff');
+        const minCutoffValue = document.getElementById('minCutoffValue');
+        const betaValue = document.getElementById('betaValue');
+        const dCutoffValue = document.getElementById('dCutoffValue');
+        
+        if (minCutoffSlider && betaSlider && dCutoffSlider) {
+            minCutoffSlider.value = this.filterParams.minCutoff.toString();
+            betaSlider.value = this.filterParams.beta.toString();
+            dCutoffSlider.value = this.filterParams.dCutoff.toString();
+            
+            if (minCutoffValue) minCutoffValue.textContent = this.filterParams.minCutoff.toString();
+            if (betaValue) betaValue.textContent = this.filterParams.beta.toString();
+            if (dCutoffValue) dCutoffValue.textContent = this.filterParams.dCutoff.toString();
+        }
+
+        // Apply filter toggle state
+        const filterToggleBtn = document.getElementById('filterToggleBtn');
+        if (filterToggleBtn) {
+            filterToggleBtn.textContent = `Filter: ${this.isFilterEnabled ? 'On' : 'Off'}`;
+        }
+
+        // Apply calibration toggle state
+        const toggleCalibrationBtn = document.getElementById('toggleCalibrationBtn');
+        if (toggleCalibrationBtn) {
+            toggleCalibrationBtn.textContent = `Calibration: ${this.calibrationToggleEnabled ? 'On' : 'Off'}`;
+        }
+
+        // Apply calibration button state
+        const calibrateBtn = document.getElementById('calibrateBtn');
+        if (calibrateBtn) {
+            calibrateBtn.textContent = this.isCalibrated ? 'Recalibrate' : 'Calibrate';
+        }
+
+        // Set selected serial port if available
+        setTimeout(() => {
+            const serialPortSelect = document.getElementById('serialPortSelect');
+            if (serialPortSelect && this.selectedSerialPort) {
+                serialPortSelect.value = this.selectedSerialPort;
+            }
+        }, 100); // Small delay to allow port list to populate
     }
 
     generateBlendshapeHTML() {
@@ -276,24 +439,28 @@ class BabbleApp {
             this.filterParams.minCutoff = parseFloat(e.target.value);
             minCutoffValue.textContent = e.target.value;
             this.updateFilter();
+            this.saveConfiguration();
         });
 
         betaSlider.addEventListener('input', (e) => {
             this.filterParams.beta = parseFloat(e.target.value);
             betaValue.textContent = e.target.value;
             this.updateFilter();
+            this.saveConfiguration();
         });
 
         dCutoffSlider.addEventListener('input', (e) => {
             this.filterParams.dCutoff = parseFloat(e.target.value);
             dCutoffValue.textContent = e.target.value;
             this.updateFilter();
+            this.saveConfiguration();
         });
 
         // Filter toggle button event listener
         filterToggleBtn.addEventListener('click', () => {
             this.isFilterEnabled = !this.isFilterEnabled;
             filterToggleBtn.textContent = `Filter: ${this.isFilterEnabled ? 'On' : 'Off'}`;
+            this.saveConfiguration();
         });
 
         // Calibration toggle button event listener
@@ -334,12 +501,29 @@ class BabbleApp {
 
             // Show/hide serial port selection based on camera source and environment
             this.refreshSerialPorts();
+            this.saveConfiguration();
         });
 
         // Handle refresh ports button
         refreshPortsBtn.addEventListener('click', async () => {
             await this.refreshSerialPorts();
         });
+
+        // Handle UDP port changes
+        const udpPortInput = document.getElementById('udpPort');
+        if (udpPortInput) {
+            udpPortInput.addEventListener('change', () => {
+                this.saveConfiguration();
+            });
+        }
+
+        // Handle serial port selection
+        if (serialPortSelect) {
+            serialPortSelect.addEventListener('change', (e) => {
+                this.selectedSerialPort = e.target.value;
+                this.saveConfiguration();
+            });
+        }
 
         connectBtn.addEventListener('click', async () => {
             this.reconnectOSC();
@@ -391,11 +575,13 @@ class BabbleApp {
         flipVerticalBtn.addEventListener('click', () => {
             this.isVerticallyFlipped = !this.isVerticallyFlipped;
             flipVerticalBtn.textContent = `Flip Vertical: ${this.isVerticallyFlipped ? 'On' : 'Off'}`;
+            this.saveConfiguration();
         });
 
         flipHorizontalBtn.addEventListener('click', () => {
             this.isHorizontallyFlipped = !this.isHorizontallyFlipped;
             flipHorizontalBtn.textContent = `Flip Horizontal: ${this.isHorizontallyFlipped ? 'On' : 'Off'}`;
+            this.saveConfiguration();
         });
 
         if (this.serialCamera) {
@@ -773,6 +959,9 @@ class BabbleApp {
             const range = this.blendshapeRanges[name];
             this.logMessage(`${name}: ${range.min.toFixed(3)} to ${range.max.toFixed(3)}`);
         });
+        
+        // Save configuration with updated calibration data
+        this.saveConfiguration();
     }
 
     recordBlendshapeRanges(predictions) {
@@ -822,6 +1011,9 @@ class BabbleApp {
             'Calibration scaling enabled - using recorded blendshape ranges' : 
             'Calibration scaling disabled - using raw blendshape values';
         this.logMessage(statusMessage);
+        
+        // Save configuration with updated calibration toggle
+        this.saveConfiguration();
     }
 }
 // Initialize the app when the page loads

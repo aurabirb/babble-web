@@ -6,7 +6,6 @@ mod udp;
 use tauri::{Emitter, Listener};
 use udp::{send_blendshapes, start_udp_listener, BlendshapeData};
 
-
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -16,9 +15,14 @@ fn greet(name: &str) -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_serialplugin::init())
-        .invoke_handler(tauri::generate_handler![greet, send_blendshapes, start_udp_listener])
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            send_blendshapes,
+            start_udp_listener
+        ])
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
