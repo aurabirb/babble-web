@@ -9,6 +9,7 @@ export class OSCClient {
                 secure: false
             })
         });
+        this.STATUS = OSC.STATUS;
 
         this.isConnected = false;
         this.port = port;
@@ -18,7 +19,7 @@ export class OSCClient {
         try {
             await this.osc.open();
             this.isConnected = true;
-            console.log(`OSC client connected to localhost:${this.port}`);
+            console.log(`Connecting OSC client to localhost:${this.port}...`);
         } catch (err) {
             console.error('Failed to connect OSC client:', err);
             this.isConnected = false;
@@ -38,7 +39,7 @@ export class OSCClient {
      * @param {Object} blendshapes - Object containing blendshape values
      */
     sendBlendshapes(blendshapes) {
-        if (!this.isConnected) return;
+        if (this.osc.status() != OSC.STATUS.IS_OPEN) return;
 
         // Send each blendshape value as a separate OSC message
         Object.entries(blendshapes).forEach(([name, value]) => {

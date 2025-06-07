@@ -1,6 +1,7 @@
 import { WebSerialCamera } from './serial-camera';
 import { TauriSerialCamera } from './tauri-serial-camera';
 import { WebcamCamera } from './webcam-camera';
+import { OSCClient } from './osc-client.js';
 import { BabbleModel } from './babble-model';
 import './style.css';
 import { MultiOneEuroFilter } from './one-euro-filter.js';
@@ -74,13 +75,39 @@ class BabbleApp {
         this.setupUI();
         this.setupEventListeners();
         this.refreshSerialPorts();
+        this.reconnectOSC();
+        this.updateFilter();
+        console.log('Babble Web App initialized');
+    }
+
+    async reconnectOSC() {
+        if (this.isTauriEnvironment) {
+            console.warn('OSC reconnection is not supported in Tauri environment');
+            return;
+        }
+        const udpPortInput = document.getElementById('udpPort');
+        const udpPort = parseInt(udpPortInput.value) || 8883;
+        const udpStatus = document.querySelector('#udpStatus');
+
+        if (this.oscClient) this.oscClient.disconnect();
+
+        // Create OSC client
+        this.oscClient = new OSCClient(udpPort);
+        try {
+            await this.oscClient.connect();
+            udpStatus.textContent = 'WS';
+        } catch (err) {
+            console.error('Failed to connect OSC client:', err);
+            this.logMessage('Failed to connect OSC client: ' + err.message);
+            udpStatus.textContent = 'WS ERR';
+        }
     }
 
     async refreshSerialPorts() {
         const cameraSource = document.getElementById('cameraSource');
         const serialPortSelection = document.getElementById('serialPortSelection');
         const serialPortSelect = document.getElementById('serialPortSelect');
-        
+
         if (cameraSource.value === 'serial' && this.serialCamera?.getAvailablePorts) {
             serialPortSelection.style.display = 'block';
         } else {
@@ -88,14 +115,14 @@ class BabbleApp {
             serialPortSelect.value = '';
             return;
         }
-        
+
         try {
             const ports = await this.serialCamera.getAvailablePorts();
             const portNames = Object.keys(ports);
-            
+
             // Clear existing options except the first one
             serialPortSelect.innerHTML = '<option value="">Select a port...</option>';
-            
+
             // Add available ports
             portNames.forEach(portName => {
                 const option = document.createElement('option');
@@ -124,6 +151,7 @@ class BabbleApp {
     setupUI() {
         // Create UI elements
         const app = document.querySelector('#app');
+        const connType = this.oscClient ? 'WS' : 'UDP';
         app.innerHTML = `
             <div class="container">
                 <div class="header">
@@ -139,9 +167,9 @@ class BabbleApp {
                         <span id="fpsCounter">FPS: 0</span>
                     </div>
                     <div class="udp-controls">
-                        <label for="udpPort">UDP Port:</label>
+                        <label for="udpPort">OSC Port:</label>
                         <input type="number" id="udpPort" min="1" max="65535" value="8883" placeholder="8883">
-                        <span id="udpStatus" class="udpStatus">Ready</span>
+                        <span id="udpStatus" class="udpStatus">${connType}</span>
                         <div id="serialPortSelection" style="display: none;">
                             <select id="serialPortSelect">
                                 <option value="">Select a port...</option>
@@ -242,7 +270,7 @@ class BabbleApp {
                 };
                 connectBtn.textContent = 'Connect Camera';
             }
-            
+
             // Show/hide serial port selection based on camera source and environment
             this.refreshSerialPorts();
         });
@@ -253,6 +281,7 @@ class BabbleApp {
         });
 
         connectBtn.addEventListener('click', async () => {
+            this.reconnectOSC();
             const selectedSource = cameraSource.value;
             // Check if serial communication is supported for serial camera
             if (selectedSource === 'serial' && !this.serialCamera) {
@@ -260,13 +289,16 @@ class BabbleApp {
             }
 
             const camera = selectedSource === 'webcam' ? this.webcamCamera : this.serialCamera;
-            
+
             if (!camera || !camera.isConnected) {
                 console.log(`Connecting to ${selectedSource} camera...`);
                 if (camera && await camera.requestPort(serialPortSelect?.value)) {
                     await camera.connect();
                     this.activeCamera = camera;
                     connectBtn.textContent = 'Disconnect';
+
+                    // Block port selector and camera source when connected
+                    this.updatePortSelectorState(false);
 
                     // Initialize model if not already done
                     if (!this.isModelInitialized) {
@@ -289,6 +321,9 @@ class BabbleApp {
                 await this.activeCamera.disconnect();
                 this.activeCamera = null;
                 connectBtn.textContent = 'Connect Camera';
+
+                // Unblock port selector and camera source when disconnected
+                this.updatePortSelectorState(true);
             }
         });
 
@@ -587,9 +622,24 @@ class BabbleApp {
             blendshapes[name] = predictions[index];
         });
 
-        this.logMessage(`Sending blendshapes to port ${udpPort}...`);
-        await emit('send_blendshapes', { data: blendshapes, port: udpPort });
-        this.logMessage(`Sent ${BabbleModel.blendshapeNames.length} blendshapes to port ${udpPort}`);
+        const udpStatus = document.querySelector('#udpStatus');
+        if (this.isTauriEnvironment) {
+            console.log(`Sending OSC blendshapes to UDP port ${udpPort}...`);
+            await emit('send_blendshapes', { data: blendshapes, port: udpPort });
+            this.logMessage(`Sent ${BabbleModel.blendshapeNames.length} blendshapes to port ${udpPort}`);
+            udpStatus.textContent = 'UDP';
+        } else if (this.oscClient) {
+            if (this.oscClient.port !== udpPort) {
+                console.warn(`OSC client port mismatch: was ${this.oscClient.port}, using ${udpPort}`);
+                this.reconnectOSC();
+            }
+            // send blendshapes via OSC websocket
+            console.log(`Sending OSC blendshapes to Websocket on port ${this.oscClient.port}...`);
+            this.oscClient.sendBlendshapes(blendshapes);
+            udpStatus.textContent = (this.oscClient.osc.status() == this.oscClient.STATUS.IS_OPEN) ? 'WS' : 'WS ERR';
+        } else {
+            this.logMessage('No OSC client available to send blendshapes');
+        }
     }
 
     updateFilter() {
@@ -600,6 +650,20 @@ class BabbleApp {
             this.filterParams.beta,
             this.filterParams.dCutoff
         );
+    }
+
+    updatePortSelectorState(enabled) {
+        // Get the relevant elements
+        const cameraSource = document.getElementById('cameraSource');
+        const serialPortSelect = document.getElementById('serialPortSelect');
+
+        // Enable/disable camera source selector
+        cameraSource.disabled = !enabled;
+
+        // Enable/disable serial port selector elements
+        if (serialPortSelect) {
+            serialPortSelect.disabled = !enabled;
+        }
     }
 }
 // Initialize the app when the page loads

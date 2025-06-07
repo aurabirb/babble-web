@@ -12,6 +12,7 @@
   "dependencies": {
     "@tauri-apps/api": "^2",
     "onnxruntime-web": "^1.15.1",
+    "osc-js": "^2.4.1",
     "tauri-plugin-serialplugin": "^2.11.1"
   },
   "devDependencies": {
