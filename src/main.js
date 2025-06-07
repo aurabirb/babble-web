@@ -82,7 +82,6 @@ class BabbleApp {
 
     async reconnectOSC() {
         if (this.isTauriEnvironment) {
-            console.warn('OSC reconnection is not supported in Tauri environment');
             return;
         }
         const udpPortInput = document.getElementById('udpPort');

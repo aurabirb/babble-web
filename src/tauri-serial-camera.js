@@ -48,7 +48,6 @@ export class TauriSerialCamera {
             }
             // Get available ports
             const ports = await currentSerialPort.available_ports();
-            console.log('Available ports:', ports);
             return ports;
         } catch (err) {
             console.error('Failed to get available ports:', err);
