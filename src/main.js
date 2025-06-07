@@ -62,6 +62,18 @@ class BabbleApp {
         // Filter state
         this.isFilterEnabled = true;
 
+        // Calibration state
+        this.isCalibrationEnabled = false;
+        this.calibrationStartTime = null;
+        this.calibrationDuration = 60000; // 1 minute in milliseconds
+        this.blendshapeRanges = {};
+        this.isCalibrated = false;
+        
+        // Initialize blendshape ranges
+        BabbleModel.blendshapeNames.forEach(name => {
+            this.blendshapeRanges[name] = { min: 0.0, max: 1.0 };
+        });
+
         // Crop rectangle state
         this.cropRect = {
             x: 0,
@@ -193,6 +205,8 @@ class BabbleApp {
                             <input type="range" id="dCutoff" min="0.1" max="5.0" step="0.1" value="1.0">
                         </div>
                         <button id="filterToggleBtn" class="filter-toggle">Filter: On</button>
+                        <button id="calibrateBtn" class="calibration-toggle">Calibrate: Off</button>
+                        <button id="resetCalibrationBtn" class="calibration-reset">Reset Calibration</button>
                     </div>
                 </div>
                 <div class="main-content">
@@ -231,6 +245,8 @@ class BabbleApp {
         const betaValue = document.getElementById('betaValue');
         const dCutoffValue = document.getElementById('dCutoffValue');
         const filterToggleBtn = document.getElementById('filterToggleBtn');
+        const calibrateBtn = document.getElementById('calibrateBtn');
+        const resetCalibrationBtn = document.getElementById('resetCalibrationBtn');
 
         // Add event listeners for filter parameter sliders
         minCutoffSlider.addEventListener('input', (e) => {
@@ -255,6 +271,16 @@ class BabbleApp {
         filterToggleBtn.addEventListener('click', () => {
             this.isFilterEnabled = !this.isFilterEnabled;
             filterToggleBtn.textContent = `Filter: ${this.isFilterEnabled ? 'On' : 'Off'}`;
+        });
+
+        // Calibration toggle button event listener
+        calibrateBtn.addEventListener('click', () => {
+            this.toggleCalibration();
+        });
+
+        // Reset calibration button event listener
+        resetCalibrationBtn.addEventListener('click', () => {
+            this.resetCalibration();
         });
 
         // Listen for UDP messages from the backend
@@ -558,13 +584,18 @@ class BabbleApp {
                 this.isPredicting = true;
                 // Use the cropped preview for predictions
                 const unfilteredPredictions = await this.model.predict(previewCropped);
-
+                
                 // Apply One Euro Filter to the predictions
                 const filteredPredictions = this.oneEuroFilter.filter(unfilteredPredictions, timestamp / 1000.0);
-
+                
+                let outputPredictions = this.isFilterEnabled ? filteredPredictions : unfilteredPredictions;
+                // Apply calibration rescaling after filtering
+                const rescaledPredictions = this.rescaleBlendshapes(outputPredictions);
                 // Update blendshapes with both predictions for display
-                this.updateBlendshapes(unfilteredPredictions, filteredPredictions, this.isFilterEnabled);
+                this.updateBlendshapes(unfilteredPredictions, rescaledPredictions);
                 this.isPredicting = false;
+                // Record blendshape ranges during calibration
+                this.recordBlendshapeRanges(unfilteredPredictions);
             }
         } catch (err) {
             console.error('Prediction error:', err);
@@ -598,26 +629,23 @@ class BabbleApp {
         }
     }
 
-    async updateBlendshapes(unfilteredPredictions, filteredPredictions, isFilterEnabled) {
-        const outputPredictions = isFilterEnabled ? filteredPredictions : unfilteredPredictions;
+    async updateBlendshapes(unfilteredPredictions, filteredPredictions) {
 
         const blendshapesList = document.getElementById('blendshapesList');
         blendshapesList.innerHTML = '';
 
         // Create bars for each prediction
-        unfilteredPredictions.forEach((_, index) => {
+        filteredPredictions.forEach((_, index) => {
             // Get the blendshape name from the model class
             const blendshapeName = BabbleModel.blendshapeNames[index] || `Shape ${index}`;
 
             // Get corresponding filtered value
             const unfilteredValue = unfilteredPredictions[index];
             const filteredValue = filteredPredictions[index];
-            const outputValue = outputPredictions[index];
 
             // Determine if the values are positive or negative
             const unfilteredPosValue = Math.max(unfilteredValue, 0);
             const filteredPosValue = Math.max(filteredValue, 0);
-            const outputPosValue = Math.max(outputValue, 0);
 
             const bar = document.createElement('div');
             bar.className = 'blendshape-bar';
@@ -625,9 +653,9 @@ class BabbleApp {
                 <span class="label">${blendshapeName}</span>
                 <div class="progress">
                     <div class="progress-bar unfiltered" style="width: ${unfilteredPosValue * 100}%;"></div>
-                    <div class="progress-bar filtered" style="width: ${outputPosValue * 100}%;"></div>
+                    <div class="progress-bar filtered" style="width: ${filteredPosValue * 100}%;"></div>
                 </div>
-                <span class="value">${(outputPosValue * 100).toFixed(1)}%</span>
+                <span class="value">${(filteredPosValue * 100).toFixed(1)}%</span>
             `;
             blendshapesList.appendChild(bar);
         });
@@ -639,7 +667,7 @@ class BabbleApp {
         // Create blendshapes object using output predictions
         const blendshapes = {};
         BabbleModel.blendshapeNames.forEach((name, index) => {
-            blendshapes[name] = outputPredictions[index];
+            blendshapes[name] = filteredPredictions[index];
         });
 
         const udpStatus = document.querySelector('#udpStatus');
@@ -684,6 +712,106 @@ class BabbleApp {
         if (serialPortSelect) {
             serialPortSelect.disabled = !enabled;
         }
+    }
+
+    toggleCalibration() {
+        const calibrateBtn = document.getElementById('calibrateBtn');
+        
+        if (!this.isCalibrationEnabled) {
+            // Start calibration
+            this.isCalibrationEnabled = true;
+            this.calibrationStartTime = Date.now();
+            this.isCalibrated = false;
+            
+            // Reset blendshape ranges to start fresh
+            BabbleModel.blendshapeNames.forEach(name => {
+                this.blendshapeRanges[name] = { min: Infinity, max: -Infinity };
+            });
+            
+            calibrateBtn.textContent = 'Calibrate: On';
+            this.logMessage(`Calibration started - recording blendshape ranges for ${this.calibrationDuration / 1000} seconds`);
+            
+            // Set timeout to automatically stop calibration after 1 minute
+            setTimeout(() => {
+                if (this.isCalibrationEnabled) {
+                    this.stopCalibration();
+                }
+            }, this.calibrationDuration);
+        } else {
+            // Stop calibration manually
+            this.stopCalibration();
+        }
+    }
+
+    stopCalibration() {
+        this.isCalibrationEnabled = false;
+        this.calibrationStartTime = null;
+        this.isCalibrated = true;
+        
+        const calibrateBtn = document.getElementById('calibrateBtn');
+        calibrateBtn.textContent = 'Calibrate: Off';
+        
+        // Log the recorded ranges
+        this.logMessage('Calibration completed - recorded ranges:');
+        BabbleModel.blendshapeNames.forEach(name => {
+            const range = this.blendshapeRanges[name];
+            this.logMessage(`${name}: ${range.min.toFixed(3)} to ${range.max.toFixed(3)}`);
+        });
+    }
+
+    recordBlendshapeRanges(predictions) {
+        if (!this.isCalibrationEnabled) return;
+        
+        BabbleModel.blendshapeNames.forEach((name, index) => {
+            const value = predictions[index];
+            const range = this.blendshapeRanges[name];
+            
+            // Update min and max values
+            if (value < range.min) {
+                range.min = value;
+            }
+            if (value > range.max) {
+                range.max = value;
+            }
+        });
+    }
+
+    rescaleBlendshapes(predictions) {
+        if (!this.isCalibrated) return predictions;
+        
+        return predictions.map((value, index) => {
+            const name = BabbleModel.blendshapeNames[index];
+            const range = this.blendshapeRanges[name];
+            
+            // Avoid division by zero
+            if (range.max === range.min) {
+                return 0;
+            }
+            
+            // Rescale from recorded range to 0-1
+            const rescaled = (value - range.min) / (range.max - range.min);
+            
+            // Clamp to 0-1 range
+            return Math.max(0, Math.min(1, rescaled));
+        });
+    }
+
+    resetCalibration() {
+        // Stop calibration if it's running
+        if (this.isCalibrationEnabled) {
+            this.isCalibrationEnabled = false;
+            this.calibrationStartTime = null;
+            const calibrateBtn = document.getElementById('calibrateBtn');
+            calibrateBtn.textContent = 'Calibrate: Off';
+        }
+        
+        // Reset all ranges to default 0-1 range
+        BabbleModel.blendshapeNames.forEach(name => {
+            this.blendshapeRanges[name] = { min: 0.0, max: 1.0 };
+        });
+        
+        this.isCalibrated = false;
+        this.logMessage('Calibration reset - all blendshape ranges set to 0.0 - 1.0');
     }
 }
 // Initialize the app when the page loads
