@@ -222,6 +222,28 @@ class BabbleApp {
                 </div>
             </div>
         `;
+
+        // Generate blendshape HTML once
+        this.generateBlendshapeHTML();
+    }
+
+    generateBlendshapeHTML() {
+        const blendshapesList = document.getElementById('blendshapesList');
+        
+        // Create bars for each blendshape
+        BabbleModel.blendshapeNames.forEach((blendshapeName, index) => {
+            const bar = document.createElement('div');
+            bar.className = 'blendshape-bar';
+            bar.innerHTML = `
+                <span class="label">${blendshapeName}</span>
+                <div class="progress">
+                    <div class="progress-bar unfiltered" id="unfiltered-${index}" style="width: 0%;"></div>
+                    <div class="progress-bar filtered" id="filtered-${index}" style="width: 0%;"></div>
+                </div>
+                <span class="value" id="value-${index}">0.0%</span>
+            `;
+            blendshapesList.appendChild(bar);
+        });
     }
 
     setupEventListeners() {
@@ -631,15 +653,9 @@ class BabbleApp {
 
     async updateBlendshapes(unfilteredPredictions, filteredPredictions) {
 
-        const blendshapesList = document.getElementById('blendshapesList');
-        blendshapesList.innerHTML = '';
-
-        // Create bars for each prediction
+        // Update values for each blendshape without recreating HTML
         filteredPredictions.forEach((_, index) => {
-            // Get the blendshape name from the model class
-            const blendshapeName = BabbleModel.blendshapeNames[index] || `Shape ${index}`;
-
-            // Get corresponding filtered value
+            // Get corresponding values
             const unfilteredValue = unfilteredPredictions[index];
             const filteredValue = filteredPredictions[index];
 
@@ -647,17 +663,14 @@ class BabbleApp {
             const unfilteredPosValue = Math.max(unfilteredValue, 0);
             const filteredPosValue = Math.max(filteredValue, 0);
 
-            const bar = document.createElement('div');
-            bar.className = 'blendshape-bar';
-            bar.innerHTML = `
-                <span class="label">${blendshapeName}</span>
-                <div class="progress">
-                    <div class="progress-bar unfiltered" style="width: ${unfilteredPosValue * 100}%;"></div>
-                    <div class="progress-bar filtered" style="width: ${filteredPosValue * 100}%;"></div>
-                </div>
-                <span class="value">${(filteredPosValue * 100).toFixed(1)}%</span>
-            `;
-            blendshapesList.appendChild(bar);
+            // Update progress bar widths
+            const unfilteredBar = document.getElementById(`unfiltered-${index}`);
+            const filteredBar = document.getElementById(`filtered-${index}`);
+            const valueSpan = document.getElementById(`value-${index}`);
+
+            if (unfilteredBar) unfilteredBar.style.width = `${unfilteredPosValue * 100}%`;
+            if (filteredBar) filteredBar.style.width = `${filteredPosValue * 100}%`;
+            if (valueSpan) valueSpan.textContent = `${(filteredPosValue * 100).toFixed(1)}%`;
         });
 
         // Get the selected UDP port
