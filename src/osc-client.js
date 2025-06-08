@@ -43,7 +43,7 @@ export class OSCClient {
 
         // Send each blendshape value as a separate OSC message
         Object.entries(blendshapes).forEach(([name, value]) => {
-            const message = new OSC.Message(`/avatar/parameters/${name}`, value);
+            const message = new OSC.Message(`/${name}`, value);
             this.osc.send(message);
         });
     }

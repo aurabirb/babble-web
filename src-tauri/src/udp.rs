@@ -26,7 +26,7 @@ pub async fn send_blendshapes(
 
     // Send OSC messages for each blendshape
     for (name, value) in data.data.iter() {
-        let address = format!("/avatar/parameters/{}", name);
+        let address = format!("/{}", name);
 
         let msg = OscMessage {
             addr: address,
