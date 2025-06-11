@@ -12,7 +12,7 @@ import { listen, emit } from '@tauri-apps/api/event';
 // for commands
 // import { invoke } from '@tauri-apps/api/core';
 
-const modelUrl = window.__TAURI__ ? '/model.onnx' : '/babble-web/model.onnx';
+const modelUrl = window.__TAURI__ ? '/model.onnx' : '/blubber-web/model.onnx';
 const IMAGE_SIZE = 224; // Model's required input size
 
 class BabbleApp {
@@ -257,7 +257,8 @@ class BabbleApp {
         app.innerHTML = `
             <div class="container">
                 <div class="header">
-                    <a href="http://aurabirb.github.io/babble-web/" target="_blank" rel="noopener noreferrer"><h1>Blubber Web</h1></a>
+                    <a href="http://aurabirb.github.io/blubber-web/" target="_blank" rel="noopener noreferrer"><h1>Blubber Web</h1></a>
+                    <div>based on <a href="https://babble.diy/">Project Babble</a></div>
                     <div class="controls">
                         <select id="cameraSource">
                             <option value="serial">Serial Camera</option>
