@@ -2,8 +2,11 @@ use rosc::{encoder, OscMessage, OscPacket, OscType};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::SocketAddr;
+use std::sync::Arc;
 use tauri::{Emitter, Listener};
 use tokio::net::UdpSocket;
+use tokio::sync::Mutex;
+use std::sync::OnceLock;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BlendshapeData {
@@ -11,14 +14,75 @@ pub struct BlendshapeData {
     pub port: u16,
 }
 
+// Structure to manage a single persistent UDP connection
+#[derive(Debug)]
+struct UdpConnectionManager {
+    current_socket: Option<Arc<UdpSocket>>,
+    current_port: Option<u16>,
+}
+
+impl UdpConnectionManager {
+    fn new() -> Self {
+        Self {
+            current_socket: None,
+            current_port: None,
+        }
+    }
+
+    async fn get_or_create_connection(&mut self, port: u16) -> Result<Arc<UdpSocket>, String> {
+        // If we have a connection for the same port, reuse it
+        if let (Some(socket), Some(current_port)) = (&self.current_socket, self.current_port) {
+            if current_port == port {
+                return Ok(socket.clone());
+            }
+        }
+
+        // Port changed or no existing connection, create new one
+        if self.current_socket.is_some() {
+            println!("Port changed from {:?} to {}, closing existing connection", self.current_port, port);
+        }
+
+        let socket = UdpSocket::bind("0.0.0.0:0")
+            .await
+            .map_err(|e| format!("Failed to bind UDP socket: {}", e))?;
+        
+        let socket_arc = Arc::new(socket);
+        self.current_socket = Some(socket_arc.clone());
+        self.current_port = Some(port);
+        
+        println!("Created new UDP connection for port {}", port);
+        Ok(socket_arc)
+    }
+
+    fn close_connection(&mut self) {
+        if self.current_socket.is_some() {
+            println!("Closed UDP connection for port {:?}", self.current_port);
+            self.current_socket = None;
+            self.current_port = None;
+        }
+    }
+}
+
+// Global connection manager
+static CONNECTION_MANAGER: OnceLock<Arc<Mutex<UdpConnectionManager>>> = OnceLock::new();
+
+fn get_connection_manager() -> &'static Arc<Mutex<UdpConnectionManager>> {
+    CONNECTION_MANAGER.get_or_init(|| {
+        Arc::new(Mutex::new(UdpConnectionManager::new()))
+    })
+}
+
 #[tauri::command]
 pub async fn send_blendshapes(
     app_handle: tauri::AppHandle,
     data: BlendshapeData,
 ) -> Result<(), String> {
-    let socket = UdpSocket::bind("0.0.0.0:0")
-        .await
-        .map_err(|e| e.to_string())?;
+    // Get or create persistent connection for this port
+    let connection_manager = get_connection_manager();
+    let socket = {
+        let mut manager = connection_manager.lock().await;
+        manager.get_or_create_connection(data.port).await?
+    };
 
     let target = format!("127.0.0.1:{}", data.port)
         .parse::<SocketAddr>()
